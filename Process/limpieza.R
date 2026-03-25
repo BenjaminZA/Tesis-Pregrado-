@@ -109,7 +109,7 @@ proc_PACES_2019 <- PACES_2019 %>%
 
 proc_PACES_2019
 
-#Homologación y limpieza de variables------------------------------------------------------
+#Homologación y limpieza de variables-------------------------------------------
 #Homologación libros------------------------------------------------------------
 
 # 0 =0-10 libros 
@@ -146,45 +146,138 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
                   Nive_educ_madre, Nive_educ_padre), 
                 ~replace(., . %in% c(8, 9), NA)))
 
-colMeans(is.na(proc_PACES_2019)) * 100
+# CIVED y ICCS (Categorias de respuesta)
+ #1= Yo desde luego no haría esto.
+ #2= Yo probablemente no haría esto.
+ #3= Yo probablemente haría esto.
+ #4= Sin duda lo haría.
 
-#Homologación Nivel educacioneal Madre------------------------------------------
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(across(c(M1, M2), ~ 5 - .)) #Para reordenar categorias de no probable a probable 
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(across(c(M1, M2, M3), ~ 5 - .))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(across(c(M1, M2, M3), ~ 5 - .))
 
 
+# PACES (Categorias de respuesta)
+ #1=Seguro noharé esto
+ #2=Tal vez haréesto
+ #3=Seguro haréesto
 
-#Homologación Nivel educacional Padre-------------------------------------------
 
+#Homologación Nivel educacioneal de los padres----------------------------------
+
+#Categorias de respuestas
+ #0=Básica incompleta o menos
+ #1=Básica completa
+ #2=Media completa
+ #3=Terciaria Técnica
+ #4=Universitaria / Postgrado
+
+#nivel educacional de la madre--------------
+
+proc_CIVED_1999$Nive_educ <- car::recode(proc_CIVED_1999$Nive_educ, 
+                                     "1=0; 2=1; 3=2; 4=2; 5=3; 6=4; 7=4",
+                                     as.numeric = TRUE)
+
+proc_ICCS_2009$Nive_educ_madre <- car::recode(proc_ICCS_2009$Nive_educ_madre, 
+                                    "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
+                                    as.numeric = TRUE)
+
+proc_ICCS_2016$Nive_educ_madre <- car::recode(proc_ICCS_2016$Nive_educ_madre, 
+                                    "5=0; 4=1; 3=2; 2=3; 1=4",
+                                    as.numeric = TRUE)
+
+proc_PACES_2019$Nive_educ_madre <- car::recode(proc_PACES_2019$Nive_educ_madre, 
+                                     "1=0; 2=1; 3=2; 4=3; 5=4",
+                                     as.numeric = TRUE)
+
+#nivel educacional del padre-----------------
+
+proc_ICCS_2009$Nive_educ_padre <- car::recode(proc_ICCS_2009$Nive_educ_padre, 
+                                              "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
+                                              as.numeric = TRUE)
+
+proc_ICCS_2016$Nive_educ_padre <- car::recode(proc_ICCS_2016$Nive_educ_padre, 
+                                              "5=0; 4=1; 3=2; 2=3; 1=4",
+                                              as.numeric = TRUE)
+
+proc_PACES_2019$Nive_educ_padre <- car::recode(proc_PACES_2019$Nive_educ_padre, 
+                                               "1=0; 2=1; 3=2; 4=3; 5=4",
+                                               as.numeric = TRUE)
+
+#Tomamos en consideración el nivel mayor entre el padre y la madre-------
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
 
 
 #Escala de nivel socioeconómico-------------------------------------------------
 
-library(dplyr)
-
-data <- data %>%
-  mutate(indice_recursos = rowSums(select(., libro_hogar, internet, computador,
-                                          auto), na.rm = TRUE))
-
-
-#Indice de participación--------------------------------------------------------
-
-# Usaremos la librería 'psych' que es el estándar en sociología
-install.packages("psych")
-library(psych)
-
-# 1. Seleccionamos solo los ítems de la escala
-items_clima <- data %>% select(clima_1, clima_2, clima_3, clima_4)
-
-# 2. Verificamos la fiabilidad (Alfa de Cronbach)
-# Buscamos un valor mayor a 0.7
-alpha_resultado <- psych::alpha(items_clima)
-print(alpha_resultado$total$std.alpha)
-
-# 3. Si el Alfa es bueno, creamos la escala por promedio
-# (El promedio mantiene la unidad de medida original, ej: 1 a 4)
-data$escala_clima <- rowMeans(items_clima, na.rm = TRUE)
 
 
 
+#Indice de participación (expectativa de voto)-----------------------------------
 
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(indice_voto = rowMeans(select(., M1, M2), na.rm = TRUE))
 
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+
+#Crombah voto-------------------------------------------------------------------
+
+#CIVED
+
+items_participacion_1999 <- proc_CIVED_1999 %>% 
+  select(M1, M2,)
+
+resultado_alpha_1999 <- psych::alpha(items_participacion_1999)
+
+print(resultado_alpha_1999$total$std.alpha)
+
+#ICCS 2009
+
+items_participacion_2009 <- proc_ICCS_2009 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2009 <- psych::alpha(items_participacion_2009)
+
+print(resultado_alpha_2009$total$std.alpha)
+
+#ICCS 2016
+
+items_participacion_2016 <- proc_ICCS_2016 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2016 <- psych::alpha(items_participacion_2016)
+
+print(resultado_alpha_2016$total$std.alpha)
+
+#PACES
+
+items_participacion_2019 <- proc_PACES_2019 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2019 <- psych::alpha(items_participacion_2019)
+
+print(resultado_alpha_2019$total$std.alpha)
 
