@@ -281,3 +281,58 @@ resultado_alpha_2019 <- psych::alpha(items_participacion_2019)
 
 print(resultado_alpha_2019$total$std.alpha)
 
+
+#índice de aula abierta---------------------------------------------------------
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(indice_aula = rowMeans(select(., N1, N2, N3, N5, N7, N8, N9), na.rm = TRUE))
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(indice_aula = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(indice_aula = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(indice_aula = rowMeans(select(., N1, N3, N5, N7, N8, N9), na.rm = TRUE))
+
+#Crombach aula abierta----------------------------------------------------------
+
+#CIVED
+
+items_aula_1999 <- proc_CIVED_1999 %>% 
+  select(N1, N2, N3, N5, N7, N8, N9)
+
+resultado_aula_1999 <- psych::alpha(items_aula_1999)
+
+print(resultado_aula_1999$total$std.alpha)
+
+#ICCS 2009
+
+items_aula_2009 <- proc_ICCS_2009 %>% 
+  select(N2, N3, N5, N7, N8, N9)
+
+resultado_aula_2009 <- psych::alpha(items_aula_2009)
+
+print(resultado_aula_2009$total$std.alpha)
+
+#ICCS 2016
+
+items_aula_2016 <- proc_ICCS_2016 %>% 
+  select(N2, N3, N5, N7, N8, N9)
+
+resultado_aula_2016 <- psych::alpha(items_aula_2016)
+
+print(resultado_aula_2016$total$std.alpha)
+
+#PACES
+
+items_aula_2019 <- proc_PACES_2019 %>% 
+  select(N1, N3, N5, N7, N8, N9)
+
+resultado_aula_2019 <- psych::alpha(items_aula_2019)
+
+print(resultado_aula_2019$total$std.alpha)
+
+
+
