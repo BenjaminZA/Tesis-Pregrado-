@@ -32,6 +32,21 @@ PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+p
 
 #Recodificación-----------------------------------------------------------------
 
+#Preguntas N= Aula abierta
+ #N1= Libertad de disernir
+ #N2= Estimulo de desiciones propias
+ #N3= Etimulo a la opinion propia
+ #N5= Pluralismo entre estudiantes
+ #N7= Autonomia cognitiva (conversar con distintos puntos de vista)
+ #N8= Profesores exponen temas desde distintos puntos de vista
+ #N9= Libertad de disernir con los profesores
+
+#Preguntas M= Expectativa de voto futuro
+ #M1= Elecciones nacionales
+ #M2= Informarse sobre los candidatos
+ #M3= Elecciones locales
+
+
 proc_CIVED_1999 <- CIVED_1999 %>% 
   dplyr::select(id = ID,
                 id_colegio = IDSCHOOL,
@@ -45,9 +60,9 @@ proc_CIVED_1999 <- CIVED_1999 %>%
                 N9 = CS4N9,
                 M1 = CS5M1,
                 M2 = CS5M2,
-                Nive_educ = CSGEDUM) 
-
-proc_CIVED_1999
+                Nive_educ = CSGEDUM,
+                Peso_est = TOTWGT,
+                Peso_esc = WGTADJ1) 
 
 #-------------------------------------------------------------------------------
 
@@ -65,9 +80,9 @@ proc_ICCS_2009 <- ICCS_2009 %>%
                 M2 = IS2P32C,
                 M3 = IS2P32A, 
                 Nive_educ_madre = IS2G07,
-                Nive_educ_padre = IS2G09) 
-
-proc_ICCS_2009
+                Nive_educ_padre = IS2G09,
+                Peso_est = TOTWGTS,
+                Peso_esc = WGTADJ1S) 
 
 #-------------------------------------------------------------------------------
 
@@ -85,9 +100,10 @@ proc_ICCS_2016 <- ICCS_2016 %>%
                 M2 = IS3G31C,
                 M3 = IS3G31A, 
                 Nive_educ_madre = IS3G07,
-                Nive_educ_padre = IS3G09) 
+                Nive_educ_padre = IS3G09,
+                Peso_est = TOTWGTS,
+                Peso_esc = WGTADJ1S) 
 
-proc_ICCS_2016
 
 #-------------------------------------------------------------------------------
 
@@ -105,17 +121,19 @@ proc_PACES_2019 <- PACES_2019 %>%
                 M2 = P31C,
                 M3 = P31A, 
                 Nive_educ_madre = P67,
-                Nive_educ_padre = P66) 
+                Nive_educ_padre = P66,
+                Peso_est = pond_estudiante_reg_dep_tens,
+                Peso_esc = pond_esc_reg_dep_tens) 
 
-proc_PACES_2019
 
 #Homologación y limpieza de variables-------------------------------------------
 #Homologación libros------------------------------------------------------------
 
-# 0 =0-10 libros 
-# 1 =11-100 libros
-# 2 =101-200 libros
-# 3 =Más de 200 libros
+#Categorias de repuesta cantidad de libros
+ # 0 =0-10 libros 
+ # 1 =11-100 libros
+ # 2 =101-200 libros
+ # 3 =Más de 200 libros
     
 proc_CIVED_1999$libro <- car::recode(proc_CIVED_1999$libro, 
                                       "1=0; 2=0; 3=1; 4=1; 5=2; 6=3",
@@ -284,24 +302,70 @@ print(resultado_alpha_2019$total$std.alpha)
 
 #índice de aula abierta---------------------------------------------------------
 
+# CIVED 1999
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
-  mutate(indice_aula = rowMeans(select(., N1, N2, N3, N5, N7, N8, N9), na.rm = TRUE))
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
 
+# ICCS 2009
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
-  mutate(indice_aula = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE))
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
 
+# ICCS 2016
 proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  mutate(indice_aula = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE))
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
 
+# PACES 2019
 proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(indice_aula = rowMeans(select(., N1, N3, N5, N7, N8, N9), na.rm = TRUE))
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+#Version con variables extra (N1 Y N2 en las bases donde se encuentra)
+
+# CIVED 1999
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N1, N2, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+# ICCS 2009
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+# ICCS 2016
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+# PACES 2019
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N1, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
 
 #Crombach aula abierta----------------------------------------------------------
 
 #CIVED
 
 items_aula_1999 <- proc_CIVED_1999 %>% 
-  select(N1, N2, N3, N5, N7, N8, N9)
+  select(N3, N5, N7, N8, N9)
 
 resultado_aula_1999 <- psych::alpha(items_aula_1999)
 
@@ -310,7 +374,7 @@ print(resultado_aula_1999$total$std.alpha)
 #ICCS 2009
 
 items_aula_2009 <- proc_ICCS_2009 %>% 
-  select(N2, N3, N5, N7, N8, N9)
+  select(N3, N5, N7, N8, N9)
 
 resultado_aula_2009 <- psych::alpha(items_aula_2009)
 
@@ -319,7 +383,7 @@ print(resultado_aula_2009$total$std.alpha)
 #ICCS 2016
 
 items_aula_2016 <- proc_ICCS_2016 %>% 
-  select(N2, N3, N5, N7, N8, N9)
+  select(N3, N5, N7, N8, N9)
 
 resultado_aula_2016 <- psych::alpha(items_aula_2016)
 
@@ -328,11 +392,29 @@ print(resultado_aula_2016$total$std.alpha)
 #PACES
 
 items_aula_2019 <- proc_PACES_2019 %>% 
-  select(N1, N3, N5, N7, N8, N9)
+  select(N3, N5, N7, N8, N9)
 
 resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
 
 
+
+
+
+
+
+
+
+
+#Pesos muestrales---------------------------------------------------------------
+
+
+
+
+
+names(PACES_2019)
+names (CIVED_1999)
+names(ICCS_2009)
+names (ICCS_2016)
 
