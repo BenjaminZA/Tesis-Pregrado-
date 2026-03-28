@@ -181,9 +181,9 @@ proc_ICCS_2016 <- proc_ICCS_2016 %>%
 
 
 # PACES (Categorias de respuesta)
- #1=Seguro noharé esto
- #2=Tal vez haréesto
- #3=Seguro haréesto
+ #1=Seguro no haré esto
+ #2=Tal vez haré esto
+ #3=Seguro haré esto
 
 
 #Homologación Nivel educacioneal de los padres----------------------------------
