@@ -15,9 +15,6 @@ pacman::p_load(tidyverse,
                psych,
                readxl)
 
-options(scipen = 999) # para desactivar notacion cientifica
-rm(list = ls()) # para limpiar el entorno de trabajo
-
 #Bases de datos-----------------------------------------------------------------
 
 
@@ -162,7 +159,7 @@ proc_PACES_2019$libro <- car::recode(proc_PACES_2019$libro,
 proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(across(c(M1, M2, M3, libro, N1, N3, N5, N7, N8, N9, 
                   Nive_educ_madre, Nive_educ_padre), 
-                ~replace(., . %in% c(8, 9), NA)))
+                ~replace(., . %in% c(5, 8, 9), NA)))
 
 # CIVED y ICCS (Categorias de respuesta)
  #1= Yo desde luego no haría esto.
@@ -240,12 +237,6 @@ proc_ICCS_2016 <- proc_ICCS_2016 %>%
 proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
   mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
-
-
-#Escala de nivel socioeconómico-------------------------------------------------
-
-
-
 
 #Indice de participación (expectativa de voto)-----------------------------------
 
@@ -398,6 +389,43 @@ resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
 
+#Crombach aula abierta (versión extendida)----------------------------------------------------------
+
+#CIVED
+
+items_aula_1999 <- proc_CIVED_1999 %>% 
+  select(N1, N2, N3, N5, N7, N8, N9)
+
+resultado_aula_1999 <- psych::alpha(items_aula_1999)
+
+print(resultado_aula_1999$total$std.alpha)
+
+#ICCS 2009
+
+items_aula_2009 <- proc_ICCS_2009 %>% 
+  select(N2, N3, N5, N7, N8, N9)
+
+resultado_aula_2009 <- psych::alpha(items_aula_2009)
+
+print(resultado_aula_2009$total$std.alpha)
+
+#ICCS 2016
+
+items_aula_2016 <- proc_ICCS_2016 %>% 
+  select(N2, N3, N5, N7, N8, N9)
+
+resultado_aula_2016 <- psych::alpha(items_aula_2016)
+
+print(resultado_aula_2016$total$std.alpha)
+
+#PACES
+
+items_aula_2019 <- proc_PACES_2019 %>% 
+  select(N1, N3, N5, N7, N8, N9)
+
+resultado_aula_2019 <- psych::alpha(items_aula_2019)
+
+print(resultado_aula_2019$total$std.alpha)
 
 
 
@@ -405,16 +433,4 @@ print(resultado_aula_2019$total$std.alpha)
 
 
 
-
-
-#Pesos muestrales---------------------------------------------------------------
-
-
-
-
-
-names(PACES_2019)
-names (CIVED_1999)
-names(ICCS_2009)
-names (ICCS_2016)
 
