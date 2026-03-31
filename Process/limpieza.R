@@ -35,11 +35,11 @@ PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+p
 #Preguntas N= Aula abierta
  #N1= Libertad de disernir
  #N2= Estimulo de desiciones propias
- #N3= Etimulo a la opinion propia
- #N5= Pluralismo entre estudiantes
- #N7= Autonomia cognitiva (conversar con distintos puntos de vista)
- #N8= Profesores exponen temas desde distintos puntos de vista
- #N9= Libertad de disernir con los profesores
+ #N3= Etimulo a la opinion propia x
+ #N5= Pluralismo entre estudiantes x
+ #N7= Autonomia cognitiva (conversar con distintos puntos de vista) x
+ #N8= Profesores exponen temas desde distintos puntos de vista x
+ #N9= Libertad de disernir con los profesores x
 
 #Preguntas M= Expectativa de voto futuro
  #M1= Elecciones nacionales
