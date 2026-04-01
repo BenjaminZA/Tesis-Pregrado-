@@ -149,11 +149,6 @@ proc_PACES_2019$libro <- car::recode(proc_PACES_2019$libro,
                                      as.numeric = TRUE)
 
 
-
-#Homologación Aula Abierta------------------------------------------------------
-
-
-
 #Homologación Voto--------------------------------------------------------------
 
 proc_PACES_2019 <- proc_PACES_2019 %>%
