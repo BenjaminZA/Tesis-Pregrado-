@@ -422,6 +422,22 @@ resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
 
+#Guardado de base---------------------------------------------------------------
+
+# 1. Crear carpeta de salida si no existe (Orden ante todo)
+if (!dir.exists("output/data_procesada")) {
+  dir.create("output/data_procesada", recursive = TRUE)
+}
+
+# 2. Guardar las bases en formato .sav
+# Usamos haven::write_sav para mantener la compatibilidad con SPSS
+
+haven::write_sav(proc_CIVED_1999, "output/data_procesada/proc_CIVED_1999.sav")
+haven::write_sav(proc_ICCS_2009,  "output/data_procesada/proc_ICCS_2009.sav")
+haven::write_sav(proc_ICCS_2016,  "output/data_procesada/proc_ICCS_2016.sav")
+haven::write_sav(proc_PACES_2019,  "output/data_procesada/proc_PACES_2019.sav")
+
+message("Bases exportadas con éxito. Verifica la carpeta output/data_procesada")
 
 
 
