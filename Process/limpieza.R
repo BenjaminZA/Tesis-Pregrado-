@@ -439,7 +439,27 @@ haven::write_sav(proc_PACES_2019,  "output/data_procesada/proc_PACES_2019.sav")
 
 message("Bases exportadas con éxito. Verifica la carpeta output/data_procesada")
 
+#Juntar las bases de datos------------------------------------------------------
 
+bases_juntas <- bind_rows(
+  "1999" = proc_CIVED_1999,
+  "2009" = proc_ICCS_2009,
+  "2016" = proc_ICCS_2016,
+  "2019" = proc_PACES_2019,
+  .id = "ano"
+)
+
+#ID para la base Global
+bases_juntas <- bases_juntas %>%
+  mutate(
+    # ID única para estudiantes (Nivel 1)
+    id_global = paste0(ano, "_", id),
+    # ID única para colegios ( Nivel 2)
+    id_colegio_global = paste0(ano, "_", id_colegio))
+
+
+# 3. Intenta guardar nuevamente
+haven::write_sav(bases_juntas, "output/data_procesada/bases_juntas.sav")
 
 
 
