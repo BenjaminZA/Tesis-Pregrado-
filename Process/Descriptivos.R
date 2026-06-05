@@ -12,7 +12,8 @@ pacman::p_load(tidyverse,
                readxl, 
                fastDummies,
                stargazer,
-               modelsummary)
+               modelsummary,
+               summarytools, dplyr, lme4, sjPlot)
 
 #Bases de datos-----------------------------------------------------------------
 
@@ -69,6 +70,11 @@ for (nombre_base in names(lista_bases)) {
   
 }
 list2env(lista_bases, envir = .GlobalEnv)
+
+b4 <- b4 %>%
+  mutate(
+    indice_voto = ifelse(indice_voto == 4 | round(indice_voto, 6) == 3.666667, NA, indice_voto)
+  )
 
 #Recodificar expectativa de voto com dummy--------------------------------------
 
@@ -127,10 +133,6 @@ cor(b4_seleccionada, use = "complete.obs")
 
 #Modelos multinivel-------------------------------------------------------------
 
-#CIVED 1999
-
-library(dplyr)
-library(lme4)
 
 b1_preparada <- b1_seleccionada %>% 
   mutate(
@@ -138,46 +140,294 @@ b1_preparada <- b1_seleccionada %>%
     libro = as.factor(libro),
     nivel_educ = as.factor(nivel_educ)
   )
+# Preparación Base 2
+b2_preparada <- b2_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
 
+# Preparación Base 3
+b3_preparada <- b3_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
 
-# Si 'voto' es una variable continua:
+# Preparación Base 4
+b4_preparada <- b4_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
+
+#CIVED 1999
+
 m0_vacio <- lmer(voto ~ 1 + (1 | id_colegio), data = b1_preparada)
 
-# Si 'voto' es binaria (0 o 1):
-# m0_vacio <- glmer(voto ~ 1 + (1 | id_colegio), data = b1_preparada, family = binomial)
 
-summary(m0_vacio)
-
-# Si 'voto' es una variable continua:
 m1_completo <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), 
                     data = b1_preparada)
 
-# Si 'voto' es binaria (0 o 1):
-# m1_completo <- glmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), 
-#                      data = b1_preparada, family = binomial)
-
-summary(m1_completo)
-
-library(modelsummary)
-
-# Creamos una lista con los modelos
-lista_modelos <- list(
-  "M0: Vacío" = m0_vacio,
-  "M1: Completo" = m1_completo
-)
-
-# Mostramos la tabla en consola o formato limpio
-modelsummary(lista_modelos, 
-             stars = TRUE, 
-             output = "markdown") # Puedes cambiar "markdown" por "html" o "latex"
+tab_model(m0_vacio, m1_completo, 
+          dv.labels = c("Modelo Vacío", "Modelo Completo"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
 
 
 #ICCS 2009
 
+m02_vacio <- lmer(voto ~ 1 + (1 | id_colegio), data = b2_preparada)
+
+# Modelo para la Base 2
+m2_completo <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), data = b2_preparada)
+
+m1_interaccion <- lmer(voto ~ nivel_educ + 
+                         libro * clima_aula_escuela + 
+                         (1 | id_colegio), 
+                       data = b2_preparada)
+
+tab_model(m02_vacio, m2_completo, m1_interaccion,
+          dv.labels = c("Modelo Vacío", "Modelo Completo"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
+
+#ICCS 2016
+
+m03_vacio <- lmer(voto ~ 1 + (1 | id_colegio), data = b3_preparada)
+# Modelo para la Base 3
+m3_completo <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), data = b3_preparada)
+
+m1_interaccion <- lmer(voto ~ nivel_educ + 
+                         libro * clima_aula_escuela + 
+                         (1 | id_colegio), 
+                       data = b3_preparada)
+
+tab_model(m03_vacio, m3_completo, m1_interaccion,
+          dv.labels = c("Modelo Vacío", "Modelo Completo"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
+
+#PACES 2019
+
+m04_vacio <- lmer(voto ~ 1 + (1 | id_colegio), data = b4_preparada)
+
+# Modelo para la Base 4
+m4_completo <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), data = b4_preparada)
+
+m1_interaccion <- lmer(voto ~ nivel_educ + 
+                         libro * clima_aula_escuela + 
+                         (1 | id_colegio), 
+                       data = b4_preparada)
+
+tab_model(m04_vacio, m4_completo, m1_interaccion,
+          dv.labels = c("Modelo Vacío", "Modelo Completo"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
 
 
+# Versión con variables dicotomisadas para la interacción entre nivles
+
+bases <- list(b1 = b1_seleccionada, b2 = b2_seleccionada, b3 = b3_seleccionada, b4 = b4_seleccionada)
+
+bases <- lapply(bases, function(df) {
+  df$libro_dic <- ifelse(df$libro == 0, 0, 1)
+  df$educ_dic  <- ifelse(df$nivel_educ <= 2, 0, 1)
+  return(df)
+})
+
+list2env(bases, envir = .GlobalEnv)
+
+for (nombre in c("b1", "b2", "b3", "b4")) {
+  df <- get(nombre)
+  cat("\n===", nombre, "===\n")
+  cat("libro:\n"); print(table(df$libro, df$libro_dic, useNA = "always"))
+  cat("nivel_educ:\n"); print(table(df$nivel_educ, df$educ_dic, useNA = "always"))
+}
 
 
+#Modelos de interación-----------------------------------------------------------
 
+# CIVED 1999
+
+
+# Modelo vacío
+m0_vacio <- lmer(voto ~ (1 | id_colegio), 
+                 data = b1)
+
+# Modelo completo con dicotómicas
+m1_completo <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + 
+                      (1 | id_colegio), 
+                    data = b1)
+
+# Modelo con interacción
+m1_interaccion <- lmer(voto ~ libro_dic + 
+                         educ_dic * clima_aula_escuela + 
+                         (1 | id_colegio), 
+                       data = b1)
+
+b1 <- b1 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    libro_dic_cwc = libro_dic - mean(libro_dic, na.rm = TRUE),
+    educ_dic_cwc  = educ_dic  - mean(educ_dic,  na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    clima_gmc = clima_aula_escuela - mean(clima_aula_escuela, na.rm = TRUE)
+  )
+
+# Modelo con interacción entre niveles
+m1_interaccion <- lmer(voto ~ educ_dic_cwc + 
+                         libro_dic_cwc  * clima_gmc +
+                         (1 | id_colegio), 
+                       data = b1)
+
+m1_interaccion2 <- lmer(voto ~ libro_dic_cwc + 
+                         educ_dic_cwc  * clima_gmc +
+                         (1 | id_colegio), 
+                       data = b1)
+
+
+tab_model(m0_vacio, m1_completo, m1_interaccion, m1_interaccion2,
+          dv.labels = c("Modelo Vacío", "Modelo Completo", "Modelo Interacción"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
+
+#ICCS 2009
+
+# Modelo vacío
+m0_vacio <- lmer(voto ~ (1 | id_colegio), 
+                 data = b2)
+
+# Modelo completo con dicotómicas
+m1_completo <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + 
+                      (1 | id_colegio), 
+                    data = b2)
+
+# Modelo con interacción
+b2 <- b2 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    libro_dic_cwc = libro_dic - mean(libro_dic, na.rm = TRUE),
+    educ_dic_cwc  = educ_dic  - mean(educ_dic,  na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    clima_gmc = clima_aula_escuela - mean(clima_aula_escuela, na.rm = TRUE)
+  )
+
+# Modelo con interacción entre niveles
+m1_interaccion <- lmer(voto ~ educ_dic_cwc + 
+                         libro_dic_cwc  * clima_gmc +
+                         (1 | id_colegio), 
+                       data = b2)
+
+m1_interaccion2 <- lmer(voto ~ libro_dic_cwc + 
+                          educ_dic_cwc  * clima_gmc +
+                          (1 | id_colegio), 
+                        data = b2)
+
+tab_model(m0_vacio, m1_completo, m1_interaccion, m1_interaccion2,
+          dv.labels = c("Modelo Vacío", "Modelo Completo", "Modelo Interacción"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
+
+# ICCS 2016
+
+# Modelo vacío
+m0_vacio <- lmer(voto ~ (1 | id_colegio), 
+                 data = b3)
+
+# Modelo completo con dicotómicas
+m1_completo <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + 
+                      (1 | id_colegio), 
+                    data = b3)
+
+# Modelo con interacción
+b3 <- b3 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    libro_dic_cwc = libro_dic - mean(libro_dic, na.rm = TRUE),
+    educ_dic_cwc  = educ_dic  - mean(educ_dic,  na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    clima_gmc = clima_aula_escuela - mean(clima_aula_escuela, na.rm = TRUE)
+  )
+
+# Modelo con interacción entre niveles
+m1_interaccion <- lmer(voto ~ educ_dic_cwc + 
+                         libro_dic_cwc  * clima_gmc +
+                         (1 | id_colegio), 
+                       data = b3)
+
+m1_interaccion2 <- lmer(voto ~ libro_dic_cwc + 
+                          educ_dic_cwc  * clima_gmc +
+                          (1 | id_colegio), 
+                        data = b3)
+
+tab_model(m0_vacio, m1_completo, m1_interaccion, m1_interaccion2,
+          dv.labels = c("Modelo Vacío", "Modelo Completo", "Modelo Interacción"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
+
+#PACES 2019
+
+# Modelo vacío
+m0_vacio <- lmer(voto ~ (1 | id_colegio), 
+                 data = b4)
+
+# Modelo completo con dicotómicas
+m1_completo <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + 
+                      (1 | id_colegio), 
+                    data = b4)
+
+# Modelo con interacción
+b4 <- b4 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    libro_dic_cwc = libro_dic - mean(libro_dic, na.rm = TRUE),
+    educ_dic_cwc  = educ_dic  - mean(educ_dic,  na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    clima_gmc = clima_aula_escuela - mean(clima_aula_escuela, na.rm = TRUE)
+  )
+
+# Modelo con interacción entre niveles
+m1_interaccion <- lmer(voto ~ educ_dic_cwc + 
+                         libro_dic_cwc  * clima_gmc +
+                         (1 | id_colegio), 
+                       data = b4)
+
+m1_interaccion2 <- lmer(voto ~ libro_dic_cwc + 
+                          educ_dic_cwc  * clima_gmc +
+                          (1 | id_colegio), 
+                        data = b4)
+
+tab_model(m0_vacio, m1_completo, m1_interaccion, m1_interaccion2,
+          dv.labels = c("Modelo Vacío", "Modelo Completo", "Modelo Interacción"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.ci = "I.C. (95%)",
+          string.p = "p-valor")
 
 
