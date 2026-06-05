@@ -10,7 +10,9 @@ pacman::p_load(tidyverse,
                magrittr,
                psych,
                readxl, 
-               fastDummies)
+               fastDummies,
+               stargazer,
+               modelsummary)
 
 #Bases de datos-----------------------------------------------------------------
 
@@ -99,22 +101,22 @@ b4 <- b4 %>%
 
 
 b1_seleccionada <- b1 %>% 
-  select(voto, libro_0, libro_1, libro_2, libro_3, nivel_educ_0, nivel_educ_1, nivel_educ_2, nivel_educ_3,
-         nivel_educ_4, clima_aula_escuela)
+  select(id, id_colegio, voto, libro, nivel_educ,
+          clima_aula_escuela)
 
 b2_seleccionada <- b2 %>% 
-  select(voto, libro_0, libro_1, libro_2, libro_3, nivel_educ_0, nivel_educ_1, nivel_educ_2, nivel_educ_3,
-         nivel_educ_4, clima_aula_escuela)
+  select(id, id_colegio, voto, libro, nivel_educ, 
+         clima_aula_escuela)
 
 b3_seleccionada <- b3 %>% 
-  select(voto, libro_0, libro_1, libro_2, libro_3, nivel_educ_0, nivel_educ_1, nivel_educ_2, nivel_educ_3,
-         nivel_educ_4, clima_aula_escuela)
+  select(id, id_colegio, voto, libro, nivel_educ, 
+         clima_aula_escuela)
 
 b4_seleccionada <- b4 %>% 
-  select(voto, libro_0, libro_1, libro_2, libro_3, nivel_educ_0, nivel_educ_1, nivel_educ_2, nivel_educ_3,
-         nivel_educ_4, clima_aula_escuela)
+  select(id, id_colegio, voto, libro, nivel_educ,
+          clima_aula_escuela)
 
-# Calculas la correlación
+# Calculas la correlación-------------------------------------------------------
 cor(b1_seleccionada, use = "complete.obs")
 
 cor(b2_seleccionada, use = "complete.obs")
@@ -122,6 +124,60 @@ cor(b2_seleccionada, use = "complete.obs")
 cor(b3_seleccionada, use = "complete.obs")
 
 cor(b4_seleccionada, use = "complete.obs")
+
+#Modelos multinivel-------------------------------------------------------------
+
+#CIVED 1999
+
+library(dplyr)
+library(lme4)
+
+b1_preparada <- b1_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
+
+
+# Si 'voto' es una variable continua:
+m0_vacio <- lmer(voto ~ 1 + (1 | id_colegio), data = b1_preparada)
+
+# Si 'voto' es binaria (0 o 1):
+# m0_vacio <- glmer(voto ~ 1 + (1 | id_colegio), data = b1_preparada, family = binomial)
+
+summary(m0_vacio)
+
+# Si 'voto' es una variable continua:
+m1_completo <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), 
+                    data = b1_preparada)
+
+# Si 'voto' es binaria (0 o 1):
+# m1_completo <- glmer(voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio), 
+#                      data = b1_preparada, family = binomial)
+
+summary(m1_completo)
+
+library(modelsummary)
+
+# Creamos una lista con los modelos
+lista_modelos <- list(
+  "M0: Vacío" = m0_vacio,
+  "M1: Completo" = m1_completo
+)
+
+# Mostramos la tabla en consola o formato limpio
+modelsummary(lista_modelos, 
+             stars = TRUE, 
+             output = "markdown") # Puedes cambiar "markdown" por "html" o "latex"
+
+
+#ICCS 2009
+
+
+
+
+
 
 
 
