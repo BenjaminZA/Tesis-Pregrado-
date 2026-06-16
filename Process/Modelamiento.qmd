@@ -1,0 +1,130 @@
+---
+title: "Informe técnico"
+format: html
+editor: visual
+---
+
+### Librería
+
+```{r}
+pacman::p_load(tidyverse, 
+               dplyr, 
+               haven, 
+               car, 
+               magrittr,
+               psych,
+               readxl, 
+               fastDummies,
+               stargazer,
+               modelsummary,
+               summarytools, dplyr, lme4, sjPlot)
+
+```
+
+#### Bases de datos
+
+```{r}
+
+proc_CIVED_1999 <- readRDS("output/data_procesada/proc_CIVED_1999.rds")
+
+proc_ICCS_2009 <- readRDS("output/data_procesada/proc_ICCS_2009.rds")
+
+proc_ICCS_2016 <- readRDS("output/data_procesada/proc_ICCS_2016.rds")
+
+proc_PACES_2019 <- readRDS("output/data_procesada/proc_PACES_2019.rds")
+
+b1<-proc_CIVED_1999
+b2<-proc_ICCS_2009 
+b3<-proc_ICCS_2016
+b4<-proc_PACES_2019
+
+b1 <- b1 %>% 
+  rename(nivel_educ = Nive_educ)
+
+```
+
+#### Limpieza
+
+```{r}
+
+b4 <- b4 %>%
+  mutate(
+    indice_voto = ifelse(indice_voto == 4 | round(indice_voto, 6) == 3.666667, NA, indice_voto)
+  )
+
+#Recodificar expectativa de voto com dummy--------------------------------------
+
+b1 <- b1 %>% 
+  mutate(
+    indice_voto = (max(indice_voto, na.rm = TRUE) + min(indice_voto, na.rm = TRUE)) - indice_voto
+  )
+
+b1 <- b1 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+b2 <- b2 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+b3 <- b3 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+b4 <- b4 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+```
+
+#### Preparación de las bases
+
+```{r}
+# Preparación Base 1
+b1_preparada <- b1_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
+# Preparación Base 2
+b2_preparada <- b2_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
+
+# Preparación Base 3
+b3_preparada <- b3_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
+
+# Preparación Base 4
+b4_preparada <- b4_seleccionada %>% 
+  mutate(
+    id_colegio = as.factor(id_colegio),
+    libro = as.factor(libro),
+    nivel_educ = as.factor(nivel_educ)
+  )
+
+```
+
+#### Modelos 
+
+#### CIVED 1999
+
+```{r}
+
+
+
+```
+
+

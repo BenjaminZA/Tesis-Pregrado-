@@ -299,9 +299,14 @@ m1_interaccion2 <- lmer(voto ~ libro_dic_cwc +
                          (1 | id_colegio), 
                        data = b1)
 
+m1_pendiente_aleatoria <- lmer(voto ~ educ_dic_cwc + 
+                                 libro_dic_cwc * clima_gmc +
+                                 (1 + clima_gmc | id_colegio), 
+                               data = b1)
+
 
 tab_model(m0_vacio, m1_completo, m1_interaccion, m1_interaccion2,
-          dv.labels = c("Modelo Vacío", "Modelo Completo", "Modelo Interacción"),
+          dv.labels = c("Modelo Vacío", "Modelo Completo", "Modelo Interacción", "m1_pendiente_aleatoria"),
           string.pred = "Predictores",
           string.est = "Coeficiente (b)",
           string.ci = "I.C. (95%)",
