@@ -25,13 +25,13 @@ pacman::p_load(tidyverse,
 
 ```{r}
 
-proc_CIVED_1999 <- readRDS("output/data_procesada/proc_CIVED_1999.rds")
+proc_CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999.rds")
 
-proc_ICCS_2009 <- readRDS("output/data_procesada/proc_ICCS_2009.rds")
+proc_ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009.rds")
 
-proc_ICCS_2016 <- readRDS("output/data_procesada/proc_ICCS_2016.rds")
+proc_ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016.rds")
 
-proc_PACES_2019 <- readRDS("output/data_procesada/proc_PACES_2019.rds")
+proc_PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 b1<-proc_CIVED_1999
 b2<-proc_ICCS_2009 
@@ -81,18 +81,38 @@ b4 <- b4 %>%
 
 ```
 
+#### Seleccionar variables
+
+```{r}
+b1_seleccionada <- b1 %>% 
+  select(id, id_colegio, voto, libro, nivel_educ,
+          clima_aula_escuela, indice_aula_ind)
+
+b2_seleccionada <- b2 %>% 
+  select(id, id_colegio, voto, libro, nivel_educ, 
+         clima_aula_escuela, indice_aula_ind)
+
+b3_seleccionada <- b3 %>% 
+  select(id, id_colegio, voto, libro, nivel_educ, 
+         clima_aula_escuela, indice_aula_ind)
+
+b4_seleccionada <- b4 %>% 
+  select(id, id_colegio, voto, libro, nivel_educ,
+          clima_aula_escuela, indice_aula_ind)
+```
+
 #### Preparación de las bases
 
 ```{r}
 # Preparación Base 1
-b1_preparada <- b1_seleccionada %>% 
+b1_seleccionada <- b1_seleccionada %>% 
   mutate(
     id_colegio = as.factor(id_colegio),
     libro = as.factor(libro),
     nivel_educ = as.factor(nivel_educ)
   )
 # Preparación Base 2
-b2_preparada <- b2_seleccionada %>% 
+b2_seleccionada <- b2_seleccionada %>% 
   mutate(
     id_colegio = as.factor(id_colegio),
     libro = as.factor(libro),
@@ -100,7 +120,7 @@ b2_preparada <- b2_seleccionada %>%
   )
 
 # Preparación Base 3
-b3_preparada <- b3_seleccionada %>% 
+b3_seleccionada <- b3_seleccionada %>% 
   mutate(
     id_colegio = as.factor(id_colegio),
     libro = as.factor(libro),
@@ -108,7 +128,7 @@ b3_preparada <- b3_seleccionada %>%
   )
 
 # Preparación Base 4
-b4_preparada <- b4_seleccionada %>% 
+b4_seleccionada <- b4_seleccionada %>% 
   mutate(
     id_colegio = as.factor(id_colegio),
     libro = as.factor(libro),
@@ -122,9 +142,453 @@ b4_preparada <- b4_seleccionada %>%
 #### CIVED 1999
 
 ```{r}
+# MODELO 0 — VACÍO (ICC)
+modelo_0 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b1_seleccionada,
+  REML = TRUE
+)
+summary(modelo_0)
 
+# MODELO 1 — EFECTOS FIJOS
+modelo_1 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data = b1_seleccionada,
+  REML = FALSE
+)
+summary(modelo_1)
+
+# MODELO 2 — PENDIENTES ALEATORIAS (libro varía por colegio)
+modelo_2 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data    = b1_seleccionada,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+summary(modelo_2)
+
+tab_model(
+  modelo_0, modelo_1, modelo_2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2")
+)
+```
+
+### ICCS 2009
+
+```{r}
+# MODELO 0 — VACÍO (ICC)
+modelo_0 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b2_seleccionada,
+  REML = TRUE
+)
+summary(modelo_0)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data = b2_seleccionada,
+  REML = FALSE
+)
+summary(modelo_1)
+
+# MODELO 2 — PENDIENTES ALEATORIAS (libro varía por colegio)
+modelo_2 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data    = b2_seleccionada,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+summary(modelo_2)
+
+tab_model(
+  modelo_0, modelo_1, modelo_2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2")
+)
 
 
 ```
+
+### ICCS 2016
+
+```{r}
+# MODELO 0 — VACÍO (ICC)
+modelo_0 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b3_seleccionada,
+  REML = TRUE
+)
+summary(modelo_0)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data = b3_seleccionada,
+  REML = FALSE
+)
+summary(modelo_1)
+
+# MODELO 2 — PENDIENTES ALEATORIAS (libro varía por colegio)
+modelo_2 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data    = b3_seleccionada,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+summary(modelo_2)
+
+tab_model(
+  modelo_0, modelo_1, modelo_2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2")
+)
+
+```
+
+### PACES 2019
+
+```{r}
+
+# MODELO 0 — VACÍO (ICC)
+modelo_0 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b4_seleccionada,
+  REML = TRUE
+)
+summary(modelo_0)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data = b4_seleccionada,
+  REML = FALSE
+)
+summary(modelo_1)
+
+# MODELO 2 — PENDIENTES ALEATORIAS (libro varía por colegio)
+modelo_2 <- lmer(
+  voto ~ libro + nivel_educ + clima_aula_escuela + (1 | id_colegio),
+  data    = b4_seleccionada,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+summary(modelo_2)
+
+tab_model(
+  modelo_0, modelo_1, modelo_2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2")
+)
+
+```
+
+### Dicotomizar
+
+```{r}
+
+bases <- list(b1 = b1_seleccionada, b2 = b2_seleccionada, b3 = b3_seleccionada, b4 = b4_seleccionada)
+bases <- lapply(bases, function(df) {
+  df$libro_dic <- ifelse(df$libro == 0, 0, 1)
+  df$educ_dic  <- ifelse(as.numeric(as.character(df$nivel_educ)) <= 2, 0, 1)
+  return(df)
+})
+list2env(bases, envir = .GlobalEnv)
+for (nombre in c("b1", "b2", "b3", "b4")) {
+  df <- get(nombre)
+  cat("\n===", nombre, "===\n")
+  cat("libro:\n"); print(table(df$libro, df$libro_dic, useNA = "always"))
+  cat("nivel_educ:\n"); print(table(df$nivel_educ, df$educ_dic, useNA = "always"))
+}
+```
+
+### Modeloamiento con pendientes aleatorias
+
+### CIVED 1999
+
+```{r}
+# Centrado dentro del grupo (within-effect): efecto individual
+b1 <- b1 %>%
+  group_by(id_colegio) %>%
+  mutate(clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+# El promedio grupal ya es tu clima_aula_escuela (between-effect)
+
+# MODELO 0 — VACÍO
+modelo_0_b1 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b1,
+  REML = TRUE
+)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1_b1 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + (1 | id_colegio),
+  data = b1,
+  REML = FALSE
+)
+
+# MODELO 2 — PENDIENTE ALEATORIA libro_dic
+modelo_2_b1 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc+ 
+    (1 + libro_dic | id_colegio),
+  data    = b1,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 3 — PENDIENTE ALEATORIA educ_dic
+modelo_3_b1 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+    (1 + educ_dic | id_colegio),
+  data    = b1,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+modelo_4_b1 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela + clima_ind_cwc:libro_dic +
+    (1 + libro_dic | id_colegio),
+  data    = b1,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+modelo_5_b1 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +  clima_ind_cwc:educ_dic +
+    (1 + educ_dic | id_colegio),
+  data    = b1,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# TABLA COMPARATIVA
+tab_model(
+  modelo_0_b1, modelo_1_b1, modelo_2_b1, modelo_3_b1, modelo_4_b1, modelo_5_b1,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+)
+
+```
+
+### ICCS 2009
+
+```{r}
+# MODELO 0 — VACÍO
+modelo_0_b2 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b2,
+  REML = TRUE
+)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1_b2 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + (1 | id_colegio),
+  data = b2,
+  REML = FALSE
+)
+
+# MODELO 2 — PENDIENTE ALEATORIA libro_dic
+modelo_2_b2 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+    (1 + libro_dic | id_colegio),
+  data    = b2,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 3 — PENDIENTE ALEATORIA educ_dic
+modelo_3_b2 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+    (1 + educ_dic | id_colegio),
+  data    = b2,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+modelo_4_b2 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:libro_dic +
+    (1 + libro_dic | id_colegio),
+  data    = b2,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+modelo_5_b2 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:educ_dic +
+    (1 + educ_dic | id_colegio),
+  data    = b2,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# TABLA COMPARATIVA
+tab_model(
+  modelo_0_b2, modelo_1_b2, modelo_2_b2, modelo_3_b2, modelo_4_b2, modelo_5_b2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+)
+```
+
+### ICCS 2016
+
+```{r}
+# MODELO 0 — VACÍO
+modelo_0_b3 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b3,
+  REML = TRUE
+)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1_b3 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + (1 | id_colegio),
+  data = b3,
+  REML = FALSE
+)
+
+# MODELO 2 — PENDIENTE ALEATORIA libro_dic
+modelo_2_b3 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+    (1 + libro_dic | id_colegio),
+  data    = b3,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 3 — PENDIENTE ALEATORIA educ_dic
+modelo_3_b3 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+    (1 + educ_dic | id_colegio),
+  data    = b3,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+modelo_4_b3 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:libro_dic +
+    (1 + libro_dic | id_colegio),
+  data    = b3,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+modelo_5_b3 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:educ_dic +
+    (1 + educ_dic | id_colegio),
+  data    = b3,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# TABLA COMPARATIVA
+tab_model(
+  modelo_0_b3, modelo_1_b3, modelo_2_b3, modelo_3_b3, modelo_4_b3, modelo_5_b3,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+)
+```
+
+### PACES 2019
+
+```{r}
+# MODELO 0 — VACÍO
+modelo_0_b4 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = b4,
+  REML = TRUE
+)
+
+# MODELO 1 — EFECTOS FIJOS
+modelo_1_b4 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + (1 | id_colegio),
+  data = b4,
+  REML = FALSE
+)
+
+# MODELO 2 — PENDIENTE ALEATORIA libro_dic
+modelo_2_b4 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+    (1 + libro_dic | id_colegio),
+  data    = b4,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 3 — PENDIENTE ALEATORIA educ_dic
+modelo_3_b4 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+    (1 + educ_dic | id_colegio),
+  data    = b4,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+modelo_4_b4 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:libro_dic +
+    (1 + libro_dic | id_colegio),
+  data    = b4,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+modelo_5_b4 <- lmer(
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:educ_dic +
+    (1 + educ_dic | id_colegio),
+  data    = b4,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# TABLA COMPARATIVA
+tab_model(
+  modelo_0_b4, modelo_1_b4, modelo_2_b4, modelo_3_b4, modelo_4_b4, modelo_5_b4,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+)
+```
+
+
+
+
+
+
+
+
+
 
 
