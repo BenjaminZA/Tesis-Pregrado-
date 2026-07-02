@@ -32,6 +32,7 @@ b2<-proc_ICCS_2009
 b3<-proc_ICCS_2016
 b4<-proc_PACES_2019
 #Descriptivos dependiente--------------------------------------------------------
+
 b1 <- b1 %>% 
   rename(nivel_educ = Nive_educ)
 

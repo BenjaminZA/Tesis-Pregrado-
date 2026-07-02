@@ -43,6 +43,16 @@ PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+p
  #M2= Informarse sobre los candidatos
  #M3= Elecciones locales
 
+#Preguntas k = Aprendizajes en la escuela
+ #K7= Aprender sobre la importanci del voto
+
+#Preguntas P= Participación dentro de la escuela
+  #P1= Actividad cultural o musical
+  #P2= Participar de un debate organizado
+  #P3= Votar por representantes
+  #P4= Ser parte de las desiciones de la escuela
+  #P5= Participar de una Asamblea
+  #P6= Ser candidato
 
 proc_CIVED_1999 <- CIVED_1999 %>% 
   dplyr::select(id = ID,
@@ -57,6 +67,7 @@ proc_CIVED_1999 <- CIVED_1999 %>%
                 N9 = CS4N9,
                 M1 = CS5M1,
                 M2 = CS5M2,
+                K7 = CS4K7,
                 Nive_educ = CSGEDUM,
                 Peso_est = TOTWGT,
                 Peso_esc = WGTADJ1) 
@@ -75,7 +86,13 @@ proc_ICCS_2009 <- ICCS_2009 %>%
                 N9 = IS2G16D,
                 M1 = IS2P32B,
                 M2 = IS2P32C,
-                M3 = IS2P32A, 
+                M3 = IS2P32A,
+                P1 = IS2G15A,
+                P2 = IS2G15B,
+                P3 = IS2G15C,
+                P4 = IS2G15D,
+                P5 = IS2G15E,
+                P6 = IS2G15F,
                 Nive_educ_madre = IS2G07,
                 Nive_educ_padre = IS2G09,
                 Peso_est = TOTWGTS,
@@ -95,7 +112,14 @@ proc_ICCS_2016 <- ICCS_2016 %>%
                 N9 = IS3G17C,
                 M1 = IS3G31B,
                 M2 = IS3G31C,
-                M3 = IS3G31A, 
+                M3 = IS3G31A,
+                K7 = IS3G18A,
+                P1 = IS3G16G,
+                P2 = IS3G16A,
+                P3 = IS3G16B,
+                P4 = IS3G16C,
+                P5 = IS3G16D,
+                P6 = IS3G16E,
                 Nive_educ_madre = IS3G07,
                 Nive_educ_padre = IS3G09,
                 Peso_est = TOTWGTS,
@@ -116,7 +140,10 @@ proc_PACES_2019 <- PACES_2019 %>%
                 N9 = P49C,
                 M1 = P31B,
                 M2 = P31C,
-                M3 = P31A, 
+                M3 = P31A,
+                P3 = P30A,
+                P5 = P30E,
+                P6 = P30B,
                 Nive_educ_madre = P67,
                 Nive_educ_padre = P66,
                 Peso_est = pond_estudiante_reg_dep_tens,
