@@ -44,7 +44,7 @@ PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+p
  #M3= Elecciones locales
 
 #Preguntas k = Aprendizajes en la escuela
- #K7= Aprender sobre la importanci del voto
+ #K7= Aprender sobre la importancia del voto
 
 #Preguntas P= Participación dentro de la escuela
   #P1= Actividad cultural o musical
@@ -179,7 +179,7 @@ proc_PACES_2019$libro <- car::recode(proc_PACES_2019$libro,
 #Homologación Voto--------------------------------------------------------------
 
 proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(across(c(M1, M2, M3, libro, N1, N3, N5, N7, N8, N9, 
+  mutate(across(c(M1, M2, M3, libro, N1, N3, N5, N7, N8, N9, P3, P5, P6,
                   Nive_educ_madre, Nive_educ_padre), 
                 ~replace(., . %in% c(5, 8, 9), NA)))
 
@@ -214,7 +214,7 @@ proc_ICCS_2016 <- proc_ICCS_2016 %>%
  #3=Terciaria Técnica
  #4=Universitaria / Postgrado
 
-#nivel educacional de la madre--------------
+# Homologación nivel educacional de la madre--------------
 
 proc_CIVED_1999$Nive_educ <- car::recode(proc_CIVED_1999$Nive_educ, 
                                      "1=0; 2=1; 3=2; 4=2; 5=3; 6=4; 7=4",
@@ -232,7 +232,7 @@ proc_PACES_2019$Nive_educ_madre <- car::recode(proc_PACES_2019$Nive_educ_madre,
                                      "1=0; 2=1; 3=2; 4=3; 5=4",
                                      as.numeric = TRUE)
 
-#nivel educacional del padre-----------------
+#Homologación nivel educacional del padre-----------------
 
 proc_ICCS_2009$Nive_educ_padre <- car::recode(proc_ICCS_2009$Nive_educ_padre, 
                                               "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
@@ -273,6 +273,90 @@ proc_ICCS_2016 <- proc_ICCS_2016 %>%
 
 proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+
+#Homologación participación dentro de la escuela--------------------------------
+
+
+#P3---------------------------------------------------
+proc_ICCS_2009$P3 <- car::recode(proc_ICCS_2009$P3, 
+                                              "1=1; 2=0; 3=0",
+                                              as.numeric = TRUE)
+
+proc_ICCS_2016$P3 <- car::recode(proc_ICCS_2016$P3, 
+                                 "1=1; 2=0",
+                                 as.numeric = TRUE)
+
+proc_PACES_2019$P3 <- car::recode(proc_PACES_2019$P3, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+#P4-----------------------------------------------------
+
+proc_ICCS_2009$P5 <- car::recode(proc_ICCS_2009$P5, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_ICCS_2016$P5 <- car::recode(proc_ICCS_2016$P5, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_PACES_2019$P5 <- car::recode(proc_PACES_2019$P5, 
+                                  "1=1; 2=0",
+                                  as.numeric = TRUE)
+
+#Homologación de variable K7 aprendizaje sobre el voto en la escuela
+
+proc_CIVED_1999$K7 <- car::recode(proc_CIVED_1999$K7, 
+                               "1=0; 2=0; 3=1; 4=1",
+                               as.numeric = TRUE)
+
+proc_ICCS_2016$K7 <- car::recode(proc_ICCS_2016$K7, 
+                                 "1=1; 2=1; 3=0; 4=0",
+                                 as.numeric = TRUE)
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    perp_aprendizaje_voto_esc   = mean(K7, na.rm = TRUE),
+  ) %>%
+  ungroup()
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    perp_aprendizaje_voto_esc     = mean(K7, na.rm = TRUE),
+  ) %>%
+  ungroup()
+
+
+#Creación de variables contextuales en proporción de estudiantes---------------
+
+# --- BASE 2: ICCS 2009 ---
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    tasa_voto_escuela     = mean(P3, na.rm = TRUE),
+    tasa_asamblea_escuela = mean(P5, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- BASE 3: ICCS 2016 ---
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    tasa_voto_escuela     = mean(P3, na.rm = TRUE),
+    tasa_asamblea_escuela = mean(P5, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- BASE 4: PACES 2019 ---
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    tasa_voto_escuela     = mean(P3, na.rm = TRUE),
+    tasa_asamblea_escuela = mean(P5, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
 
 #Crombah voto-------------------------------------------------------------------
 
@@ -448,6 +532,36 @@ items_aula_2019 <- proc_PACES_2019 %>%
 resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
+
+#Crombach participación escolar-------------------------------------------------
+
+#ICCS 2009
+
+items_aula_2009 <- proc_ICCS_2009 %>% 
+  select(P3, P5)
+
+resultado_aula_2009 <- psych::alpha(items_aula_2009)
+
+print(resultado_aula_2009$total$std.alpha)
+
+#ICCS 2016
+
+items_aula_2016 <- proc_ICCS_2016 %>% 
+  select(P3, P5)
+
+resultado_aula_2016 <- psych::alpha(items_aula_2016)
+
+print(resultado_aula_2016$total$std.alpha)
+
+#PACES
+
+items_aula_2019 <- proc_PACES_2019 %>% 
+  select(P3, P5)
+
+resultado_aula_2019 <- psych::alpha(items_aula_2019)
+
+print(resultado_aula_2019$total$std.alpha)
+
 
 #Guardado de base---------------------------------------------------------------
 

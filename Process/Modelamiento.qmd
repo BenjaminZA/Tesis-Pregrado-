@@ -17,7 +17,7 @@ pacman::p_load(tidyverse,
                fastDummies,
                stargazer,
                modelsummary,
-               summarytools, dplyr, lme4, sjPlot)
+               summarytools, dplyr, lme4, sjPlot, webshot2, htmltools, officer)
 
 ```
 
@@ -37,6 +37,7 @@ b1<-proc_CIVED_1999
 b2<-proc_ICCS_2009 
 b3<-proc_ICCS_2016
 b4<-proc_PACES_2019
+
 
 b1 <- b1 %>% 
   rename(nivel_educ = Nive_educ)
@@ -90,15 +91,15 @@ b1_seleccionada <- b1 %>%
 
 b2_seleccionada <- b2 %>% 
   select(id, id_colegio, voto, libro, nivel_educ, 
-         clima_aula_escuela, indice_aula_ind)
+         clima_aula_escuela, indice_aula_ind, P3, P5, tasa_voto_escuela, tasa_asamblea_escuela)
 
 b3_seleccionada <- b3 %>% 
   select(id, id_colegio, voto, libro, nivel_educ, 
-         clima_aula_escuela, indice_aula_ind)
+         clima_aula_escuela, indice_aula_ind, P3, P5,tasa_voto_escuela, tasa_asamblea_escuela)
 
 b4_seleccionada <- b4 %>% 
   select(id, id_colegio, voto, libro, nivel_educ,
-          clima_aula_escuela, indice_aula_ind)
+          clima_aula_escuela, indice_aula_ind, P3, P5, tasa_voto_escuela, tasa_asamblea_escuela)
 ```
 
 #### Preparación de las bases
@@ -137,7 +138,7 @@ b4_seleccionada <- b4_seleccionada %>%
 
 ```
 
-#### Modelos 
+#### Modelos
 
 #### CIVED 1999
 
@@ -317,6 +318,44 @@ for (nombre in c("b1", "b2", "b3", "b4")) {
 
 ### Modeloamiento con pendientes aleatorias
 
+## Centrado aula ind
+```{r}
+library(dplyr)
+
+# --- BASE 1: CIVED 1999 ---
+b1 <- b1 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- BASE 2: ICCS 2009 ---
+b2 <- b2 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- BASE 3: ICCS 2016 ---
+b3 <- b3 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- BASE 4: PACES 2019 ---
+b4 <- b4 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)
+  ) %>%
+  ungroup()
+```
+
+
 ### CIVED 1999
 
 ```{r}
@@ -337,14 +376,15 @@ modelo_0_b1 <- lmer(
 
 # MODELO 1 — EFECTOS FIJOS
 modelo_1_b1 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + (1 | id_colegio),
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+    (1 | id_colegio),
   data = b1,
   REML = FALSE
 )
 
 # MODELO 2 — PENDIENTE ALEATORIA libro_dic
 modelo_2_b1 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc+ 
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + libro_dic | id_colegio),
   data    = b1,
   REML    = FALSE,
@@ -360,32 +400,53 @@ modelo_3_b1 <- lmer(
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+# MODELO 4 — INTERACCIÓN clima_ind × libro_dic
 modelo_4_b1 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela + clima_ind_cwc:libro_dic +
+  voto ~ libro_dic * clima_ind_cwc + educ_dic + clima_aula_escuela +
     (1 + libro_dic | id_colegio),
   data    = b1,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+# MODELO 5 — INTERACCIÓN clima_ind × educ_dic
 modelo_5_b1 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +  clima_ind_cwc:educ_dic +
+  voto ~ educ_dic * clima_ind_cwc + libro_dic + clima_aula_escuela +
     (1 + educ_dic | id_colegio),
   data    = b1,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
+# MODELO 6 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × libro_dic
+modelo_6_b1 <- lmer(
+  voto ~ libro_dic * clima_aula_escuela + educ_dic + clima_ind_cwc +
+    (1 + libro_dic | id_colegio),
+  data    = b1,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 7 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × educ_dic
+modelo_7_b1 <- lmer(
+  voto ~ educ_dic * clima_aula_escuela + libro_dic + clima_ind_cwc +
+    (1 + educ_dic | id_colegio),
+  data    = b1,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+
 # TABLA COMPARATIVA
 tab_model(
-  modelo_0_b1, modelo_1_b1, modelo_2_b1, modelo_3_b1, modelo_4_b1, modelo_5_b1,
+  modelo_0_b1, modelo_1_b1, modelo_2_b1, modelo_3_b1,
+  modelo_4_b1, modelo_5_b1, modelo_6_b1, modelo_7_b1,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
   show.ci     = FALSE,
-  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3",
+                  "Modelo 4", "Modelo 5", "Modelo 6", "Modelo 7")
 )
 
 ```
@@ -393,6 +454,14 @@ tab_model(
 ### ICCS 2009
 
 ```{r}
+# Centrado dentro del grupo (within-effect): efecto individual
+b2 <- b2 %>%
+  group_by(id_colegio) %>%
+  mutate(clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+# El promedio grupal ya es tu clima_aula_escuela (between-effect)
+
 # MODELO 0 — VACÍO
 modelo_0_b2 <- lmer(
   voto ~ 1 + (1 | id_colegio),
@@ -402,14 +471,15 @@ modelo_0_b2 <- lmer(
 
 # MODELO 1 — EFECTOS FIJOS
 modelo_1_b2 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + (1 | id_colegio),
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+    (1 | id_colegio),
   data = b2,
   REML = FALSE
 )
 
 # MODELO 2 — PENDIENTE ALEATORIA libro_dic
 modelo_2_b2 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + libro_dic | id_colegio),
   data    = b2,
   REML    = FALSE,
@@ -418,25 +488,43 @@ modelo_2_b2 <- lmer(
 
 # MODELO 3 — PENDIENTE ALEATORIA educ_dic
 modelo_3_b2 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + educ_dic | id_colegio),
   data    = b2,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+# MODELO 4 — INTERACCIÓN clima_ind × libro_dic
 modelo_4_b2 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:libro_dic +
+  voto ~ libro_dic * clima_ind_cwc + educ_dic + clima_aula_escuela +
     (1 + libro_dic | id_colegio),
   data    = b2,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+# MODELO 5 — INTERACCIÓN clima_ind × educ_dic
 modelo_5_b2 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:educ_dic +
+  voto ~ educ_dic * clima_ind_cwc + libro_dic + clima_aula_escuela +
+    (1 + educ_dic | id_colegio),
+  data    = b2,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 6 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × libro_dic
+modelo_6_b2 <- lmer(
+  voto ~ libro_dic * clima_aula_escuela + educ_dic + clima_ind_cwc +
+    (1 + libro_dic | id_colegio),
+  data    = b2,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 7 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × educ_dic
+modelo_7_b2 <- lmer(
+  voto ~ educ_dic * clima_aula_escuela + libro_dic + clima_ind_cwc +
     (1 + educ_dic | id_colegio),
   data    = b2,
   REML    = FALSE,
@@ -445,18 +533,26 @@ modelo_5_b2 <- lmer(
 
 # TABLA COMPARATIVA
 tab_model(
-  modelo_0_b2, modelo_1_b2, modelo_2_b2, modelo_3_b2, modelo_4_b2, modelo_5_b2,
+  modelo_0_b2, modelo_1_b2, modelo_2_b2, modelo_3_b2,
+  modelo_4_b2, modelo_5_b2, modelo_6_b2, modelo_7_b2,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
   show.ci     = FALSE,
-  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3",
+                  "Modelo 4", "Modelo 5", "Modelo 6", "Modelo 7")
 )
 ```
 
 ### ICCS 2016
 
 ```{r}
+# Centrado dentro del grupo (within-effect): efecto individual
+b3 <- b3 %>%
+  group_by(id_colegio) %>%
+  mutate(clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
 # MODELO 0 — VACÍO
 modelo_0_b3 <- lmer(
   voto ~ 1 + (1 | id_colegio),
@@ -466,14 +562,15 @@ modelo_0_b3 <- lmer(
 
 # MODELO 1 — EFECTOS FIJOS
 modelo_1_b3 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + (1 | id_colegio),
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+    (1 | id_colegio),
   data = b3,
   REML = FALSE
 )
 
 # MODELO 2 — PENDIENTE ALEATORIA libro_dic
 modelo_2_b3 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + libro_dic | id_colegio),
   data    = b3,
   REML    = FALSE,
@@ -482,25 +579,43 @@ modelo_2_b3 <- lmer(
 
 # MODELO 3 — PENDIENTE ALEATORIA educ_dic
 modelo_3_b3 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + educ_dic | id_colegio),
   data    = b3,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+# MODELO 4 — INTERACCIÓN clima_ind × libro_dic
 modelo_4_b3 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:libro_dic +
+  voto ~ libro_dic * clima_ind_cwc + educ_dic + clima_aula_escuela +
     (1 + libro_dic | id_colegio),
   data    = b3,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+# MODELO 5 — INTERACCIÓN clima_ind × educ_dic
 modelo_5_b3 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:educ_dic +
+  voto ~ educ_dic * clima_ind_cwc + libro_dic + clima_aula_escuela +
+    (1 + educ_dic | id_colegio),
+  data    = b3,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 6 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × libro_dic
+modelo_6_b3 <- lmer(
+  voto ~ libro_dic * clima_aula_escuela + educ_dic + clima_ind_cwc +
+    (1 + libro_dic | id_colegio),
+  data    = b3,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 7 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × educ_dic
+modelo_7_b3 <- lmer(
+  voto ~ educ_dic * clima_aula_escuela + libro_dic + clima_ind_cwc +
     (1 + educ_dic | id_colegio),
   data    = b3,
   REML    = FALSE,
@@ -509,18 +624,26 @@ modelo_5_b3 <- lmer(
 
 # TABLA COMPARATIVA
 tab_model(
-  modelo_0_b3, modelo_1_b3, modelo_2_b3, modelo_3_b3, modelo_4_b3, modelo_5_b3,
+  modelo_0_b3, modelo_1_b3, modelo_2_b3, modelo_3_b3,
+  modelo_4_b3, modelo_5_b3, modelo_6_b3, modelo_7_b3,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
   show.ci     = FALSE,
-  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3",
+                  "Modelo 4", "Modelo 5", "Modelo 6", "Modelo 7")
 )
 ```
 
 ### PACES 2019
 
 ```{r}
+# Centrado dentro del grupo (within-effect): efecto individual
+b4 <- b4 %>%
+  group_by(id_colegio) %>%
+  mutate(clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
 # MODELO 0 — VACÍO
 modelo_0_b4 <- lmer(
   voto ~ 1 + (1 | id_colegio),
@@ -530,14 +653,15 @@ modelo_0_b4 <- lmer(
 
 # MODELO 1 — EFECTOS FIJOS
 modelo_1_b4 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + (1 | id_colegio),
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+    (1 | id_colegio),
   data = b4,
   REML = FALSE
 )
 
 # MODELO 2 — PENDIENTE ALEATORIA libro_dic
 modelo_2_b4 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + libro_dic | id_colegio),
   data    = b4,
   REML    = FALSE,
@@ -546,25 +670,43 @@ modelo_2_b4 <- lmer(
 
 # MODELO 3 — PENDIENTE ALEATORIA educ_dic
 modelo_3_b4 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela +
+  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
     (1 + educ_dic | id_colegio),
   data    = b4,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 4 — PENDIENTE ALEATORIA libro_dic + INTERACCIÓN clima
+# MODELO 4 — INTERACCIÓN clima_ind × libro_dic
 modelo_4_b4 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:libro_dic +
+  voto ~ libro_dic * clima_ind_cwc + educ_dic + clima_aula_escuela +
     (1 + libro_dic | id_colegio),
   data    = b4,
   REML    = FALSE,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# MODELO 5 — PENDIENTE ALEATORIA educ_dic + INTERACCIÓN clima
+# MODELO 5 — INTERACCIÓN clima_ind × educ_dic
 modelo_5_b4 <- lmer(
-  voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_aula_escuela:educ_dic +
+  voto ~ educ_dic * clima_ind_cwc + libro_dic + clima_aula_escuela +
+    (1 + educ_dic | id_colegio),
+  data    = b4,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 6 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × libro_dic
+modelo_6_b4 <- lmer(
+  voto ~ libro_dic * clima_aula_escuela + educ_dic + clima_ind_cwc +
+    (1 + libro_dic | id_colegio),
+  data    = b4,
+  REML    = FALSE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# MODELO 7 — INTERACCIÓN CROSS-LEVEL: clima_aula_escuela × educ_dic
+modelo_7_b4 <- lmer(
+  voto ~ educ_dic * clima_aula_escuela + libro_dic + clima_ind_cwc +
     (1 + educ_dic | id_colegio),
   data    = b4,
   REML    = FALSE,
@@ -573,19 +715,765 @@ modelo_5_b4 <- lmer(
 
 # TABLA COMPARATIVA
 tab_model(
-  modelo_0_b4, modelo_1_b4, modelo_2_b4, modelo_3_b4, modelo_4_b4, modelo_5_b4,
+  modelo_0_b4, modelo_1_b4, modelo_2_b4, modelo_3_b4,
+  modelo_4_b4, modelo_5_b4, modelo_6_b4, modelo_7_b4,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
   show.ci     = FALSE,
-  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3", "Modelo 4", "Modelo 5")
+  dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3",
+                  "Modelo 4", "Modelo 5", "Modelo 6", "Modelo 7")
 )
+```
+
+
+```{r}
+
+modelar_y_guardar <- function(datos, nombre_archivo) {
+  
+  # --- Ruta hacia output desde process ---
+  ruta_output <- "../output"
+  
+  # --- Crear carpeta output si no existe ---
+  if (!dir.exists(ruta_output)) dir.create(ruta_output)
+  
+  # --- Centrado dentro del grupo ---
+  datos <- datos %>%
+    group_by(id_colegio) %>%
+    mutate(clima_ind_cwc = indice_aula_ind - mean(indice_aula_ind, na.rm = TRUE)) %>%
+    ungroup()
+  
+  # --- Control de optimización ---
+  ctrl <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+  
+  # --- Modelamiento ---
+  m0 <- lmer(voto ~ 1 + (1 | id_colegio), 
+             data = datos, REML = TRUE)
+  
+  m1 <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+               (1 | id_colegio), 
+             data = datos, REML = FALSE)
+  
+  m2 <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+               (1 + libro_dic | id_colegio), 
+             data = datos, REML = FALSE, control = ctrl)
+  
+  m3 <- lmer(voto ~ libro_dic + educ_dic + clima_aula_escuela + clima_ind_cwc + 
+               (1 + educ_dic | id_colegio), 
+             data = datos, REML = FALSE, control = ctrl)
+  
+  m4 <- lmer(voto ~ libro_dic * clima_ind_cwc + educ_dic + clima_aula_escuela + 
+               (1 + libro_dic | id_colegio), 
+             data = datos, REML = FALSE, control = ctrl)
+  
+  m5 <- lmer(voto ~ educ_dic * clima_ind_cwc + libro_dic + clima_aula_escuela + 
+               (1 + educ_dic | id_colegio), 
+             data = datos, REML = FALSE, control = ctrl)
+  
+  m6 <- lmer(voto ~ libro_dic * clima_aula_escuela + educ_dic + clima_ind_cwc + 
+               (1 + libro_dic | id_colegio), 
+             data = datos, REML = FALSE, control = ctrl)
+  
+  m7 <- lmer(voto ~ educ_dic * clima_aula_escuela + libro_dic + clima_ind_cwc + 
+               (1 + educ_dic | id_colegio), 
+             data = datos, REML = FALSE, control = ctrl)
+  
+  # --- Tabla comparativa (visible en QMD) ---
+  tabla <- tab_model(
+    m0, m1, m2, m3, m4, m5, m6, m7,
+    show.re.var = TRUE,
+    show.icc    = TRUE,
+    show.r2     = TRUE,
+    show.ci     = FALSE,
+    dv.labels   = c("Modelo 0", "Modelo 1", "Modelo 2", "Modelo 3",
+                    "Modelo 4", "Modelo 5", "Modelo 6", "Modelo 7")
+  )
+  
+  # --- Rutas de archivos ---
+  html_file <- file.path(ruta_output, paste0(nombre_archivo, ".html"))
+  png_file  <- file.path(ruta_output, paste0(nombre_archivo, ".png"))
+  word_file <- file.path(ruta_output, paste0(nombre_archivo, ".docx"))
+  
+  # --- Guardar como PNG ---
+  save_html(HTML(tabla$page.content), html_file)
+  webshot(html_file, png_file, vwidth = 1400, vheight = 900, zoom = 2)
+  file.remove(html_file)
+  message("✔ PNG guardado: ", png_file)
+  
+  # --- Guardar como Word ---
+  doc <- read_docx()
+  doc <- body_add_par(doc, paste("Tabla comparativa —", nombre_archivo), 
+                      style = "heading 1")
+  doc <- body_add_img(doc, src = png_file, width = 18, height = 12, unit = "cm")
+  print(doc, target = word_file)
+  message("✔ Word guardado: ", word_file)
+  
+  invisible(list(m0 = m0, m1 = m1, m2 = m2, m3 = m3,
+                 m4 = m4, m5 = m5, m6 = m6, m7 = m7))
+}
+```
+
+## Base B1
+
+```{r}
+modelar_y_guardar(datos = b1, nombre_archivo = "CIVED_1999_Modelo")
+```
+
+## Base B2
+
+```{r}
+modelar_y_guardar(datos = b2, nombre_archivo = "ICCS_2009_Modelo")
+```
+
+## Base B3
+
+```{r}
+modelar_y_guardar(datos = b3, nombre_archivo = "ICCS_2016_Modelo")
+```
+
+## Base B4
+
+```{r}
+modelar_y_guardar(datos = b4, nombre_archivo = "PACES_2019_Modelo")
+```
+
+# Modelamiento con participación como variabl contextual
+## Centrado de participación individual 
+```{r}
+
+# --- BASE 2: ICCS 2009 ---
+b2 <- b2 %>%
+  mutate(
+    P3_centrada = P3 - tasa_voto_escuela,
+    P5_centrada = P5 - tasa_asamblea_escuela
+  )
+
+# --- BASE 3: ICCS 2016 ---
+b3 <- b3 %>%
+  mutate(
+    P3_centrada = P3 - tasa_voto_escuela,
+    P5_centrada = P5 - tasa_asamblea_escuela
+  )
+
+# --- BASE 4: PACES 2019 ---
+b4 <- b4 %>%
+  mutate(
+    P3_centrada = P3 - tasa_voto_escuela,
+    P5_centrada = P5 - tasa_asamblea_escuela
+  )
+
+```
+
+
+## Centrado de perpcesión de aprendizaje voto
+```{r}
+
+b1 <- b1 %>%
+  mutate(
+    K7_centrada = K7 - perp_aprendizaje_voto_esc
+  )
+
+
+b3 <- b3 %>%
+  mutate(
+    K7_centrada = K7 - perp_aprendizaje_voto_esc
+  )
+
+```
+
+
+# ICCS 2009
+```{r}
+# Modelo con los efectos fijos aditivos (sin cruzar variables)
+m2_sin_interaccion <- lmer(voto ~ libro + nivel_educ + 
+                             P3_centrada + P5_centrada                                     
+                             tasa_voto_escuela + tasa_asamblea_escuela +   
+                             (1 | id_colegio), 
+                           data = b2)
+
+# Interacción 1: Educación de los padres × Tasa de Voto Escolar
+m2_int_educ_voto <- lmer(voto ~ libro + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                           nivel_educ * tasa_voto_escuela + 
+                           (1 | id_colegio), 
+                         data = b2)
+
+m2_int_libro_voto <- lmer(voto ~ nivel_educ  + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                            libro * tasa_voto_escuela + 
+                            (1 | id_colegio), 
+                          data = b2)
+
+# Interacción 3: Educación de los padres × Tasa de Asamblea Escolar
+m2_int_educ_asamblea <- lmer(voto ~ libro + P3_centrada + P5_centrada + tasa_voto_escuela +
+                               nivel_educ * tasa_asamblea_escuela + 
+                               (1 | id_colegio), 
+                             data = b2)
+
+
+m2_int_libro_asamblea <- lmer(voto ~ nivel_educ + P3_centrada + P5_centrada + tasa_voto_escuela +
+                                libro * tasa_asamblea_escuela + 
+                                (1 | id_colegio), 
+                              data = b2)
+
+
+
+tab_model(m2_sin_interaccion, m2_int_educ_voto, m2_int_libro_voto, m2_int_educ_asamblea, m2_int_libro_asamblea,
+          dv.labels = c("Sin Interacción", "Int: Educ x Voto", "Int: Libro x Voto", "Int: Educ x Asamblea", "Int: Libro x Asamblea"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci     = FALSE)
+
+```
+
+# ICCS 2016
+```{r}
+
+# ==============================================================================
+# MODELOS PARA LA BASE B3 (ICCS 2016)
+# ==============================================================================
+
+# 1. Modelo con los efectos fijos aditivos (sin cruzar variables)
+m3_sin_interaccion <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + 
+                             P3_centrada + P5_centrada +                                     
+                             tasa_voto_escuela + tasa_asamblea_escuela +   
+                             (1 | id_colegio), 
+                           data = b3)
+
+# 2. Interacción 1: Educación de los padres × Tasa de Voto Escolar
+m3_int_educ_voto <- lmer(voto ~ libro + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                           nivel_educ * tasa_voto_escuela + 
+                           (1 + nivel_educ| id_colegio), 
+                         data = b3)
+
+sjPlot::plot_model(m3_int_educ_voto, type ="pred", terms = c("nivel_educ", "tasa_voto_escuela"))
+
+# 3. Interacción 2: Libros en el hogar × Tasa de Voto Escolar
+m3_int_libro_voto <- lmer(voto ~ nivel_educ + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                            libro * tasa_voto_escuela + 
+                            (1 | id_colegio), 
+                          data = b3)
+
+# 4. Interacción 3: Educación de los padres × Tasa de Asamblea Escolar
+m3_int_educ_asamblea <- lmer(voto ~ libro + clima_aula_escuela + P3_centrada + P5_centrada + tasa_voto_escuela +
+                               nivel_educ * tasa_asamblea_escuela + 
+                               (1 | id_colegio), 
+                             data = b3)
+
+# 5. Interacción 4: Libros en el hogar × Tasa de Asamblea Escolar
+m3_int_libro_asamblea <- lmer(voto ~ nivel_educ + clima_aula_escuela + P3_centrada + P5_centrada + tasa_voto_escuela +
+                                libro * tasa_asamblea_escuela + 
+                                (1 | id_colegio), 
+                              data = b3)
+
+
+# ==============================================================================
+# GENERACIÓN DE LA TABLA COMPARATIVA B3
+# ==============================================================================
+
+tab_model(m3_sin_interaccion, m3_int_educ_voto, m3_int_libro_voto, m3_int_educ_asamblea, m3_int_libro_asamblea,
+          dv.labels = c("Sin Interacción", "Int: Educ x Voto", "Int: Libro x Voto", "Int: Educ x Asamblea", "Int: Libro x Asamblea"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+```
+
+# PACES 2019
+```{r}
+
+# ==============================================================================
+# MODELOS PARA LA BASE B4 (PACES 2019)
+# ==============================================================================
+
+# 1. Modelo con los efectos fijos aditivos (sin cruzar variables)
+m4_sin_interaccion <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + 
+                             P3_centrada + P5_centrada +                                     
+                             tasa_voto_escuela + tasa_asamblea_escuela +   
+                             (1 | id_colegio), 
+                           data = b4)
+
+# 2. Interacción 1: Educación de los padres × Tasa de Voto Escolar
+m4_int_educ_voto <- lmer(voto ~ libro + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                           nivel_educ * tasa_voto_escuela + 
+                           (1 | id_colegio), 
+                         data = b4)
+
+# 3. Interacción 2: Libros en el hogar × Tasa de Voto Escolar
+m4_int_libro_voto <- lmer(voto ~ nivel_educ + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                            libro * tasa_voto_escuela + 
+                            (1 | id_colegio), 
+                          data = b4)
+
+# 4. Interacción 3: Educación de los padres × Tasa de Asamblea Escolar
+m4_int_educ_asamblea <- lmer(voto ~ libro + clima_aula_escuela + P3_centrada + P5_centrada + tasa_voto_escuela +
+                               nivel_educ * tasa_asamblea_escuela + 
+                               (1 | id_colegio), 
+                             data = b4)
+
+# 5. Interacción 4: Libros en el hogar × Tasa de Asamblea Escolar
+m4_int_libro_asamblea <- lmer(voto ~ nivel_educ + clima_aula_escuela + P3_centrada + P5_centrada + tasa_voto_escuela +
+                                libro * tasa_asamblea_escuela + 
+                                (1 | id_colegio), 
+                              data = b4)
+
+
+# ==============================================================================
+# GENERACIÓN DE LA TABLA COMPARATIVA B4
+# ==============================================================================
+
+tab_model(m4_sin_interaccion, m4_int_educ_voto, m4_int_libro_voto, m4_int_educ_asamblea, m4_int_libro_asamblea,
+          dv.labels = c("Sin Interacción", "Int: Educ x Voto", "Int: Libro x Voto", "Int: Educ x Asamblea", "Int: Libro x Asamblea"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+
 ```
 
 
 
 
 
+
+
+
+
+##Modelamiento con K7
+
+## CIVED 1999
+```{r}
+
+# --- MODELO BASE: Sin Interacción ---
+# Evalúa el efecto directo de K7 individual (centrada) y del contexto de la escuela
+m1_sin_interaccion <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + 
+                             K7_centrada + perp_aprendizaje_voto_esc + 
+                             (1 | id_colegio), 
+                           data = b1)
+
+# --- INTERACCIÓN 1: Educación de los padres × Aprendizaje en la Escuela ---
+m1_int_educ_k7 <- lmer(voto ~ libro + clima_aula_escuela + K7_centrada +
+                         nivel_educ * perp_aprendizaje_voto_esc + 
+                         (1 | id_colegio), 
+                       data = b1)
+
+# --- INTERACCIÓN 2: Libros en el hogar × Aprendizaje en la Escuela ---
+m1_int_libro_k7 <- lmer(voto ~ nivel_educ + clima_aula_escuela + K7_centrada +
+                          libro * perp_aprendizaje_voto_esc + 
+                          (1 | id_colegio), 
+                        data = b1)
+
+
+tab_model(m1_sin_interaccion, m1_int_educ_k7, m1_int_libro_k7,
+          dv.labels = c("Sin Interacción", "Int: Educ x K7 Escuela", "Int: Libro x K7 Escuela"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+
+```
+
+## ICCS 2016
+
+```{r}
+
+# --- MODELO BASE: Sin Interacción ---
+m3_sin_interaccion <- lmer(voto ~ libro + nivel_educ + clima_aula_escuela + 
+                             K7_centrada + perp_aprendizaje_voto_esc + 
+                             (1 | id_colegio), 
+                           data = b3)
+
+# --- INTERACCIÓN 1: Educación de los padres × Aprendizaje en la Escuela ---
+m3_int_educ_k7 <- lmer(voto ~ libro + clima_aula_escuela + K7_centrada +
+                         nivel_educ * perp_aprendizaje_voto_esc + 
+                         (1 | id_colegio), 
+                       data = b3)
+
+# --- INTERACCIÓN 2: Libros en el hogar × Aprendizaje en la Escuela ---
+m3_int_libro_k7 <- lmer(voto ~ nivel_educ + clima_aula_escuela + K7_centrada +
+                          libro * perp_aprendizaje_voto_esc + 
+                          (1 | id_colegio), 
+                        data = b3)
+
+```
+
+
+
+
+
+### Modelamiento con todas las variables contextuales controlando
+
+## CIVED 1999
+```{r}
+
+# ==============================================================================
+# BLOQUE 1: MODELOS BASE (Efectos principales directos)
+# ==============================================================================
+
+# Model 1: Base con Intercepto Aleatorio únicamente (Sin interacciones, Sin pendientes aleatorias)
+m1_base_fijo <- lmer(voto ~ libro + nivel_educ + 
+                       clima_ind_cwc + clima_aula_escuela +          
+                       K7_centrada + perp_aprendizaje_voto_esc +     
+                       (1 | id_colegio), 
+                     data = b1)
+
+# Model 2: Base con Doble Pendiente Aleatoria (Sin interacciones)
+m1_base_pendientes <- lmer(voto ~ libro + nivel_educ + 
+                             clima_ind_cwc + clima_aula_escuela +          
+                             K7_centrada + perp_aprendizaje_voto_esc +     
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b1)
+
+
+# ==============================================================================
+# BLOQUE 2: MODELOS DE INTERACCIÓN CRUZA-NIVELES + PENDIENTES ALEATORIAS
+# ==============================================================================
+
+# --- DIMENSIÓN: CLIMA AULA ESCUELA ---
+
+# Model 3: Interacción Educación × Clima + Pendientes Aleatorias
+m1_int_educ_clima <- lmer(voto ~ libro + clima_ind_cwc + K7_centrada + perp_aprendizaje_voto_esc +
+                            nivel_educ * clima_aula_escuela + 
+                            (1 + libro + nivel_educ | id_colegio), 
+                          data = b1)
+
+# Model 4: Interacción Libros × Clima + Pendientes Aleatorias
+m1_int_libro_clima <- lmer(voto ~ nivel_educ + clima_ind_cwc + K7_centrada + perp_aprendizaje_voto_esc +
+                             libro * clima_aula_escuela + 
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b1)
+
+
+# --- DIMENSIÓN: APRENDIZAJE K7 ---
+
+# Model 5: Interacción Educación × Aprendizaje K7 + Pendientes Aleatorias
+m1_int_educ_k7 <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + K7_centrada +
+                         nivel_educ * perp_aprendizaje_voto_esc + 
+                         (1 + libro + nivel_educ | id_colegio), 
+                       data = b1)
+
+# Model 6: Interacción Libros × Aprendizaje K7 + Pendientes Aleatorias
+m1_int_libro_k7 <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + K7_centrada +
+                          libro * perp_aprendizaje_voto_esc + 
+                          (1 + libro + nivel_educ | id_colegio), 
+                        data = b1)
+
+
+# ==============================================================================
+# BLOQUE 3: LA GRAN TABLA COMPARATIVA FINAL DE RESULTADOS (b1)
+# ==============================================================================
+
+tab_model(m1_base_fijo, m1_base_pendientes, 
+          m1_int_educ_clima, m1_int_libro_clima, 
+          m1_int_educ_k7, m1_int_libro_k7,
+          dv.labels = c("M1: Base Fijo", 
+                        "M2: Base Pendientes", 
+                        "M3: Int Educ x Clima", 
+                        "M4: Int Libro x Clima", 
+                        "M5: Int Educ x K7", 
+                        "M6: Int Libro x K7"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+```
+
+## ICCS 2009
+```{r}
+
+# ==============================================================================
+# BLOQUE 1: MODELOS BASE (Efectos principales directos - 2009)
+# ==============================================================================
+
+# Model 1: Base con Intercepto Aleatorio únicamente (Sin interacciones, Sin pendientes aleatorias)
+m2_base_fijo <- lmer(voto ~ libro + nivel_educ + 
+                       clima_ind_cwc + clima_aula_escuela +          
+                       P3_centrada + tasa_voto_escuela +     
+                       P5_centrada + tasa_asamblea_escuela +
+                       (1 | id_colegio), 
+                     data = b2)
+
+# Model 2: Base con Doble Pendiente Aleatoria (Sin interacciones)
+m2_base_pendientes <- lmer(voto ~ libro + nivel_educ + 
+                             clima_ind_cwc + clima_aula_escuela +          
+                             P3_centrada + tasa_voto_escuela +     
+                             P5_centrada + tasa_asamblea_escuela +
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b2)
+
+
+# ==============================================================================
+# BLOQUE 2: MODELOS DE INTERACCIÓN CRUZA-NIVELES + PENDIENTES ALEATORIAS
+# ==============================================================================
+
+# --- DIMENSIÓN: CLIMA AULA ESCUELA ---
+
+# Model 3: Interacción Educación × Clima Aula Escuela
+m2_int_educ_clima <- lmer(voto ~ libro + clima_ind_cwc + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                            nivel_educ * clima_aula_escuela + 
+                            (1 + libro + nivel_educ | id_colegio), 
+                          data = b2)
+
+# Model 4: Interacción Libros × Clima Aula Escuela
+m2_int_libro_clima <- lmer(voto ~ nivel_educ + clima_ind_cwc + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                             libro * clima_aula_escuela + 
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b2)
+
+
+# --- DIMENSIÓN: PARTICIPACIÓN ELECTORAL (TASA VOTO) ---
+
+# Model 5: Interacción Educación × Tasa Voto Escuela
+m2_int_educ_voto <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                         nivel_educ * tasa_voto_escuela + 
+                         (1 + libro + nivel_educ | id_colegio), 
+                       data = b2)
+
+# Model 6: Interacción Libros × Tasa Voto Escuela
+m2_int_libro_voto <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                          libro * tasa_voto_escuela + 
+                          (1 + libro + nivel_educ | id_colegio), 
+                        data = b2)
+
+
+# --- DIMENSIÓN: PARTICIPACIÓN DELIBERATIVA (TASA ASAMBLEA) ---
+
+# Model 7: Interacción Educación × Tasa Asamblea Escuela
+m2_int_educ_asamblea <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + P3_centrada + tasa_voto_escuela + P5_centrada +
+                               nivel_educ * tasa_asamblea_escuela + 
+                               (1 + libro + nivel_educ | id_colegio), 
+                             data = b2)
+
+# Model 8: Interacción Libros × Tasa Asamblea Escuela
+m2_int_libro_asamblea <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + P3_centrada + tasa_voto_escuela + P5_centrada +
+                                libro * tasa_asamblea_escuela + 
+                                (1 + libro + nivel_educ | id_colegio), 
+                              data = b2)
+
+
+# ==============================================================================
+# BLOQUE 3: LA GRAN TABLA COMPARATIVA FINAL DE RESULTADOS (b2)
+# ==============================================================================
+
+tab_model(m2_base_fijo, m2_base_pendientes, 
+          m2_int_educ_clima, m2_int_libro_clima, 
+          m2_int_educ_voto, m2_int_libro_voto,
+          m2_int_educ_asamblea, m2_int_libro_asamblea,
+          dv.labels = c("M1: Base Fijo", 
+                        "M2: Base Pendientes", 
+                        "M3: Int Educ x Clima", 
+                        "M4: Int Libro x Clima", 
+                        "M5: Int Educ x Voto", 
+                        "M6: Int Libro x Voto",
+                        "M7: Int Educ x Asamblea",
+                        "M8: Int Libro x Asamblea"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+```
+
+## ICCS 2016
+```{r}
+# ==============================================================================
+# BLOQUE 1: MODELOS BASE (Efectos principales directos - ICCS 2016)
+# ==============================================================================
+
+# Model 1: Base con Intercepto Aleatorio únicamente (Sin interacciones)
+m3_base_fijo <- lmer(voto ~ libro + nivel_educ + 
+                       clima_ind_cwc + clima_aula_escuela +          
+                       K7_centrada + perp_aprendizaje_voto_esc +
+                       P3_centrada + tasa_voto_escuela +     
+                       P5_centrada + tasa_asamblea_escuela +
+                       (1 | id_colegio), 
+                     data = b3)
+
+# Model 2: Base con Doble Pendiente Aleatoria (Sin interacciones)
+m3_base_pendientes <- lmer(voto ~ libro + nivel_educ + 
+                             clima_ind_cwc + clima_aula_escuela +          
+                             K7_centrada + perp_aprendizaje_voto_esc +
+                             P3_centrada + tasa_voto_escuela +     
+                             P5_centrada + tasa_asamblea_escuela +
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b3)
+
+
+# ==============================================================================
+# BLOQUE 2: MODELOS DE INTERACCIÓN CRUZA-NIVELES + PENDIENTES ALEATORIAS
+# ==============================================================================
+
+# --- DIMENSIÓN 1: CLIMA AULA ESCUELA ---
+
+# Model 3: Interacción Educación × Clima Aula Escuela
+m3_int_educ_clima <- lmer(voto ~ libro + clima_ind_cwc + K7_centrada + perp_aprendizaje_voto_esc + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                            nivel_educ * clima_aula_escuela + 
+                            (1 + libro + nivel_educ | id_colegio), 
+                          data = b3)
+
+# Model 4: Interacción Libros × Clima Aula Escuela
+m3_int_libro_clima <- lmer(voto ~ nivel_educ + clima_ind_cwc + K7_centrada + perp_aprendizaje_voto_esc + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                             libro * clima_aula_escuela + 
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b3)
+
+
+# --- DIMENSIÓN 2: APRENDIZAJE CÍVICO (K7 ESCOLAR) ---
+
+# Model 5: Interacción Educación × Aprendizaje K7 Escuela
+m3_int_educ_k7 <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + K7_centrada + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                         nivel_educ * perp_aprendizaje_voto_esc + 
+                         (1 + libro + nivel_educ | id_colegio), 
+                       data = b3)
+
+# Model 6: Interacción Libros × Aprendizaje K7 Escuela
+m3_int_libro_k7 <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + K7_centrada + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                          libro * perp_aprendizaje_voto_esc + 
+                          (1 + libro + nivel_educ | id_colegio), 
+                        data = b3)
+
+
+# --- DIMENSIÓN 3: PARTICIPACIÓN ELECTORAL (TASA VOTO) ---
+
+# Model 7: Interacción Educación × Tasa Voto Escuela
+m3_int_educ_voto <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + K7_centrada + perp_aprendizaje_voto_esc + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                           nivel_educ * tasa_voto_escuela + 
+                           (1 + libro + nivel_educ | id_colegio), 
+                         data = b3)
+
+# Model 8: Interacción Libros × Tasa Voto Escuela
+m3_int_libro_voto <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + K7_centrada + perp_aprendizaje_voto_esc + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                            libro * tasa_voto_escuela + 
+                            (1 + libro + nivel_educ | id_colegio), 
+                          data = b3)
+
+
+# --- DIMENSIÓN 4: PARTICIPACIÓN DELIBERATIVA (TASA ASAMBLEA) ---
+
+# Model 9: Interacción Educación × Tasa Asamblea Escuela
+m3_int_educ_asamblea <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + K7_centrada + perp_aprendizaje_voto_esc + P3_centrada + tasa_voto_escuela + P5_centrada +
+                               nivel_educ * tasa_asamblea_escuela + 
+                               (1 + libro + nivel_educ | id_colegio), 
+                             data = b3)
+
+# Model 10: Interacción Libros × Tasa Asamblea Escuela
+m3_int_libro_asamblea <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + K7_centrada + perp_aprendizaje_voto_esc + P3_centrada + tasa_voto_escuela + P5_centrada +
+                                libro * tasa_asamblea_escuela + 
+                                (1 + libro + nivel_educ | id_colegio), 
+                              data = b3)
+
+
+# ==============================================================================
+# BLOQUE 3: LA GRAN TABLA COMPARATIVA DE RESULTADOS (b3)
+# ==============================================================================
+
+tab_model(m3_base_fijo, m3_base_pendientes, 
+          m3_int_educ_clima, m3_int_libro_clima, 
+          m3_int_educ_k7, m3_int_libro_k7,
+          m3_int_educ_voto, m3_int_libro_voto,
+          m3_int_educ_asamblea, m3_int_libro_asamblea,
+          dv.labels = c("M1: Base Fijo", "M2: Base Pend.", 
+                        "M3: Int Educ x Clima", "M4: Int Libro x Clima", 
+                        "M5: Int Educ x K7", "M6: Int Libro x K7",
+                        "M7: Int Educ x Voto", "M8: Int Libro x Voto",
+                        "M9: Int Educ x Asam.", "M10: Int Libro x Asam."),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+```
+
+## PACES 2019
+```{r}
+# ==============================================================================
+# BLOQUE 1: MODELOS BASE (Efectos principales directos - 2019)
+# ==============================================================================
+
+# Model 1: Base con Intercepto Aleatorio únicamente (Sin interacciones, Sin pendientes aleatorias)
+m4_base_fijo <- lmer(voto ~ libro + nivel_educ + 
+                       clima_ind_cwc + clima_aula_escuela +          
+                       P3_centrada + tasa_voto_escuela +     
+                       P5_centrada + tasa_asamblea_escuela +
+                       (1 | id_colegio), 
+                     data = b4)
+
+# Model 2: Base con Doble Pendiente Aleatoria (Sin interacciones)
+m4_base_pendientes <- lmer(voto ~ libro + nivel_educ + 
+                             clima_ind_cwc + clima_aula_escuela +          
+                             P3_centrada + tasa_voto_escuela +     
+                             P5_centrada + tasa_asamblea_escuela +
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b4)
+
+
+# ==============================================================================
+# BLOQUE 2: MODELOS DE INTERACCIÓN CRUZA-NIVELES + PENDIENTES ALEATORIAS
+# ==============================================================================
+
+# --- DIMENSIÓN: CLIMA AULA ESCUELA ---
+
+# Model 3: Interacción Educación × Clima Aula Escuela
+m4_int_educ_clima <- lmer(voto ~ libro + clima_ind_cwc + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                            nivel_educ * clima_aula_escuela + 
+                            (1 + libro + nivel_educ | id_colegio), 
+                          data = b4)
+
+# Model 4: Interacción Libros × Clima Aula Escuela
+m4_int_libro_clima <- lmer(voto ~ nivel_educ + clima_ind_cwc + P3_centrada + tasa_voto_escuela + P5_centrada + tasa_asamblea_escuela +
+                             libro * clima_aula_escuela + 
+                             (1 + libro + nivel_educ | id_colegio), 
+                           data = b4)
+
+
+# --- DIMENSIÓN: PARTICIPACIÓN ELECTORAL (TASA VOTO) ---
+
+# Model 5: Interacción Educación × Tasa Voto Escuela
+m4_int_educ_voto <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                           nivel_educ * tasa_voto_escuela + 
+                           (1 + libro + nivel_educ | id_colegio), 
+                         data = b4)
+
+# Model 6: Interacción Libros × Tasa Voto Escuela
+m4_int_libro_voto <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + P3_centrada + P5_centrada + tasa_asamblea_escuela +
+                            libro * tasa_voto_escuela + 
+                            (1 + libro + nivel_educ | id_colegio), 
+                          data = b4)
+
+
+# --- DIMENSIÓN: PARTICIPACIÓN DELIBERATIVA (TASA ASAMBLEA) ---
+
+# Model 7: Interacción Educación × Tasa Asamblea Escuela
+m4_int_educ_asamblea <- lmer(voto ~ libro + clima_ind_cwc + clima_aula_escuela + P3_centrada + tasa_voto_escuela + P5_centrada +
+                               nivel_educ * tasa_asamblea_escuela + 
+                               (1 + libro + nivel_educ | id_colegio), 
+                             data = b4)
+
+# Model 8: Interacción Libros × Tasa Asamblea Escuela
+m4_int_libro_asamblea <- lmer(voto ~ nivel_educ + clima_ind_cwc + clima_aula_escuela + P3_centrada + tasa_voto_escuela + P5_centrada +
+                                libro * tasa_asamblea_escuela + 
+                                (1 + libro + nivel_educ | id_colegio), 
+                              data = b4)
+
+
+# ==============================================================================
+# BLOQUE 3: LA GRAN TABLA COMPARATIVA FINAL DE RESULTADOS (b4)
+# ==============================================================================
+
+tab_model(m4_base_fijo, m4_base_pendientes, 
+          m4_int_educ_clima, m4_int_libro_clima, 
+          m4_int_educ_voto, m4_int_libro_voto,
+          m4_int_educ_asamblea, m4_int_libro_asamblea,
+          dv.labels = c("M1: Base Fijo", 
+                        "M2: Base Pendientes", 
+                        "M3: Int Educ x Clima", 
+                        "M4: Int Libro x Clima", 
+                        "M5: Int Educ x Voto", 
+                        "M6: Int Libro x Voto",
+                        "M7: Int Educ x Asamblea",
+                        "M8: Int Libro x Asamblea"),
+          string.pred = "Predictores",
+          string.est = "Coeficiente (b)",
+          string.p = "p-valor",
+          show.ci = FALSE)
+```
 
 
 
