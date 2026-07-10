@@ -283,13 +283,13 @@ proc_ICCS_2009$P3 <- car::recode(proc_ICCS_2009$P3,
                                               as.numeric = TRUE)
 
 proc_ICCS_2016$P3 <- car::recode(proc_ICCS_2016$P3, 
-                                 "1=1; 2=0",
+                                 "1=1; 2=0; 3=0",
                                  as.numeric = TRUE)
 
 proc_PACES_2019$P3 <- car::recode(proc_PACES_2019$P3, 
-                                 "1=1; 2=0; 3=0",
+                                 "1=1; 2=0; 3= NA",
                                  as.numeric = TRUE)
-#P4-----------------------------------------------------
+#P5-----------------------------------------------------
 
 proc_ICCS_2009$P5 <- car::recode(proc_ICCS_2009$P5, 
                                  "1=1; 2=0; 3=0",
@@ -300,7 +300,7 @@ proc_ICCS_2016$P5 <- car::recode(proc_ICCS_2016$P5,
                                  as.numeric = TRUE)
 
 proc_PACES_2019$P5 <- car::recode(proc_PACES_2019$P5, 
-                                  "1=1; 2=0",
+                                  "1=1; 2=0; 3=NA",
                                   as.numeric = TRUE)
 
 #Homologación de variable K7 aprendizaje sobre el voto en la escuela
@@ -564,17 +564,6 @@ print(resultado_aula_2019$total$std.alpha)
 
 
 #Guardado de base---------------------------------------------------------------
-
-proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  mutate(across(everything(), zap_missing))
-
-write_sav(proc_ICCS_2016, "output/data_procesada/proc_ICCS_2016.sav")
-
-
-# 1. Crear carpeta de salida si no existe (Orden ante todo)
-if (!dir.exists("output/data_procesada")) {
-  dir.create("output/data_procesada", recursive = TRUE)
-}
 
 # 2. Guardar las bases en formato .sav
 # Usamos haven::write_sav para mantener la compatibilidad con SPSS
