@@ -17,7 +17,7 @@ pacman::p_load(tidyverse,
                fastDummies,
                stargazer,
                modelsummary,
-               summarytools, dplyr, lme4, sjPlot, webshot2, htmltools, officer)
+               summarytools, dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest)
 
 ```
 
