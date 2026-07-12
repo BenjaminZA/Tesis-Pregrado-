@@ -974,22 +974,222 @@ tab_model(
 
 #### CLIMA
 ```{r}
+etiquetas <- c(
+  "CIVED_1999",
+  "ICCS_2009",
+  "ICCS_2016",
+  "PACES_2019"
+)
+
+# INTERACCIÓN LIBRO
+archivo_docx <- here::here("output", "Modelos", "Clima_aula",
+                            "modelos_clima_interaccion_libro.doc")
+
+tab_model(
+  modelo_clima_CIVED_4,
+  modelo_clima_ICCS_2009_4,
+  modelo_clima_ICCS_2016_4,
+  modelo_clima_PACES_2019_4,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# INTERACCIÓN EDUC
+archivo_docx <- here::here("output", "Modelos", "Clima_aula",
+                            "modelos_clima_interaccion_educ.doc")
+
+tab_model(
+  modelo_clima_CIVED_5,
+  modelo_clima_ICCS_2009_5,
+  modelo_clima_ICCS_2016_5,
+  modelo_clima_PACES_2019_5,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# Predictivos
+
+archivo_docx <- here::here("output", "Modelos", "Clima_aula",
+                            "modelos_clima_predictivo_educ.doc")
+
+tab_model(
+  modelo_clima_CIVED_1,
+  modelo_clima_ICCS_2009_1,
+  modelo_clima_ICCS_2016_1,
+  modelo_clima_PACES_2019_1,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
 
 ```
 
 ### VOTO_ESC
 ```{r}
 
+# INTERACCIÓN LIBRO
+archivo_docx <- here::here("output", "Modelos", "Voto_esc",
+                            "modelos_votar_esc_interaccion_libro.doc")
+
+tab_model(
+  modelo_votar_esc_ICCS_2009_4,
+  modelo_votar_esc_ICCS_2016_4,
+  modelo_votar_esc_PACES_2019_4,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# INTERACCIÓN EDUC
+archivo_docx <- here::here("output", "Modelos", "Voto_esc",
+                            "modelos_votar_esc_interaccion_educ.doc")
+
+tab_model(
+  modelo_votar_esc_ICCS_2009_5,
+  modelo_votar_esc_ICCS_2016_5,
+  modelo_votar_esc_PACES_2019_5,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# Predictivos
+
+archivo_docx <- here::here("output", "Modelos", "Voto_esc",
+                            "modelos_votar_esc_predictivo_educ.doc")
+
+tab_model(
+  modelo_votar_esc_ICCS_2009_1,
+  modelo_votar_esc_ICCS_2016_1,
+  modelo_votar_esc_PACES_2019_1,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+
+
 ```
 
 ### ASAMBLEA
 ```{r}
+# INTERACCIÓN LIBRO
+archivo_docx <- here::here("output", "Modelos", "Asamblea",
+                            "modelos_asamblea_interaccion_libro.doc")
 
+tab_model(
+  modelo_asamblea_ICCS_2009_4,
+  modelo_asamblea_ICCS_2016_4,
+  modelo_asamblea_PACES_2019_4,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# INTERACCIÓN EDUC
+archivo_docx <- here::here("output", "Modelos", "Asamblea",
+                            "modelos_asamblea_interaccion_educ.doc")
+
+tab_model(
+  modelo_asamblea_ICCS_2009_5,
+  modelo_asamblea_ICCS_2016_5,
+  modelo_asamblea_PACES_2019_5,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# Predictivos
+
+archivo_docx <- here::here("output", "Modelos", "Asamblea",
+                            "modelos_asamblea_predictivo_educ.doc")
+
+tab_model(
+  modelo_asamblea_ICCS_2009_1,
+  modelo_asamblea_ICCS_2016_1,
+  modelo_asamblea_PACES_2019_1,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
 ```
 
 ### APRENDIZAJE_VOTO
 ```{r}
+# INTERACCIÓN LIBRO
+archivo_docx <- here::here("output", "Modelos", "Aprendizaje_voto",
+                            "modelos_clima_interaccion_libro.doc")
 
+tab_model(
+  modelo_aprendizaje_voto_CIVED_4,
+  modelo_aprendizaje_voto_ICCS_2016_4,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# INTERACCIÓN EDUC
+archivo_docx <- here::here("output", "Modelos", "Aprendizaje_voto",
+                            "modelos_clima_interaccion_educ.doc")
+
+tab_model(
+  modelo_aprendizaje_voto_CIVED_5,
+  modelo_aprendizaje_voto_ICCS_2016_5,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+# Predictivos
+
+archivo_docx <- here::here("output", "Modelos", "Aprendizaje_voto",
+                            "modelos_clima_predictivo_educ.doc")
+
+tab_model(
+  modelo_aprendizaje_voto_CIVED_1,
+  modelo_aprendizaje_voto_ICCS_2016_1,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
 ```
 
 
