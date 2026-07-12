@@ -723,7 +723,7 @@ modelo_asamblea_ICCS_2016_5 <- lmer(
 
 #EFECTOS FIJOS 1
 modelo_asamblea_PACES_2019_1 <- lmer(
-  voto ~ libro + nivel_educ + votar_esc + (1 | id_colegio),
+  voto ~ libro + nivel_educ + asamblea + (1 | id_colegio),
   data = PACES_2019,
   REML = FALSE
 )
@@ -1037,6 +1037,12 @@ tab_model(
 
 ### VOTO_ESC
 ```{r}
+etiquetas <- c(
+  "ICCS_2009",
+  "ICCS_2016",
+  "PACES_2019"
+)
+
 
 # INTERACCIÓN LIBRO
 archivo_docx <- here::here("output", "Modelos", "Voto_esc",
@@ -1145,6 +1151,11 @@ tab_model(
 
 ### APRENDIZAJE_VOTO
 ```{r}
+
+etiquetas <- c(
+  "CIVED_1999",
+  "ICCS_2016")
+
 # INTERACCIÓN LIBRO
 archivo_docx <- here::here("output", "Modelos", "Aprendizaje_voto",
                             "modelos_clima_interaccion_libro.doc")
