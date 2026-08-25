@@ -29,6 +29,14 @@ PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+p
 
 #Recodificación-----------------------------------------------------------------
 
+#Género
+ #ITSEX CIVED_1999
+ #
+
+#Región
+
+#Dependencia
+
 #Preguntas N= Aula abierta
  #N1= Libertad de disernir
  #N2= Estimulo de desiciones propias
@@ -70,8 +78,9 @@ proc_CIVED_1999 <- CIVED_1999 %>%
                 K7 = CS4K7,
                 Nive_educ = CSGEDUM,
                 Peso_est = TOTWGT,
-                Peso_esc = WGTADJ1) 
-
+                Peso_esc = WGTADJ1,
+                Sexo = ITSEX) 
+CIVED_1999$
 #-------------------------------------------------------------------------------
 
 proc_ICCS_2009 <- ICCS_2009 %>% 
@@ -96,7 +105,8 @@ proc_ICCS_2009 <- ICCS_2009 %>%
                 Nive_educ_madre = IS2G07,
                 Nive_educ_padre = IS2G09,
                 Peso_est = TOTWGTS,
-                Peso_esc = WGTADJ1S) 
+                Peso_esc = WGTADJ1S,
+                Sexo = SGENDER) 
 
 #-------------------------------------------------------------------------------
 
@@ -123,8 +133,8 @@ proc_ICCS_2016 <- ICCS_2016 %>%
                 Nive_educ_madre = IS3G07,
                 Nive_educ_padre = IS3G09,
                 Peso_est = TOTWGTS,
-                Peso_esc = WGTADJ1S) 
-
+                Peso_esc = WGTADJ1S,
+                Sexo = S_GENDER) 
 
 #-------------------------------------------------------------------------------
 
@@ -147,7 +157,9 @@ proc_PACES_2019 <- PACES_2019 %>%
                 Nive_educ_madre = P67,
                 Nive_educ_padre = P66,
                 Peso_est = pond_estudiante_reg_dep_tens,
-                Peso_esc = pond_esc_reg_dep_tens) 
+                Peso_esc = pond_esc_reg_dep_tens,
+                Sexo = P58) 
+
 
 
 #Homologación y limpieza de variables-------------------------------------------
