@@ -29,14 +29,6 @@ PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+p
 
 #Recodificación-----------------------------------------------------------------
 
-#Género
- #ITSEX CIVED_1999
- #
-
-#Región
-
-#Dependencia
-
 #Preguntas N= Aula abierta
  #N1= Libertad de disernir
  #N2= Estimulo de desiciones propias
@@ -78,9 +70,10 @@ proc_CIVED_1999 <- CIVED_1999 %>%
                 K7 = CS4K7,
                 Nive_educ = CSGEDUM,
                 Peso_est = TOTWGT,
-                Peso_esc = WGTADJ1,
+                WGTADJ1,
+                WGTFAC1,
                 Sexo = ITSEX) 
-CIVED_1999$
+
 #-------------------------------------------------------------------------------
 
 proc_ICCS_2009 <- ICCS_2009 %>% 
@@ -105,7 +98,8 @@ proc_ICCS_2009 <- ICCS_2009 %>%
                 Nive_educ_madre = IS2G07,
                 Nive_educ_padre = IS2G09,
                 Peso_est = TOTWGTS,
-                Peso_esc = WGTADJ1S,
+                WGTADJ1S,
+                WGTFAC1,
                 Sexo = SGENDER) 
 
 #-------------------------------------------------------------------------------
@@ -133,7 +127,8 @@ proc_ICCS_2016 <- ICCS_2016 %>%
                 Nive_educ_madre = IS3G07,
                 Nive_educ_padre = IS3G09,
                 Peso_est = TOTWGTS,
-                Peso_esc = WGTADJ1S,
+                WGTADJ1S,
+                WGTFAC1,
                 Sexo = S_GENDER) 
 
 #-------------------------------------------------------------------------------
@@ -158,8 +153,40 @@ proc_PACES_2019 <- PACES_2019 %>%
                 Nive_educ_padre = P66,
                 Peso_est = pond_estudiante_reg_dep_tens,
                 Peso_esc = pond_esc_reg_dep_tens,
-                Sexo = P58) 
+                Sexo = P58,
+                Dependencia,
+                Region = REGION) 
 
+#Construcción peso muestral de la escuela---------------------------------------
+
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1)
+proc_ICCS_2009  <- proc_ICCS_2009  %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1S)
+proc_ICCS_2016  <- proc_ICCS_2016  %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1S)
+
+
+#Homologación de variable SEXO--------------------------------------------------
+
+#Categorias generales
+# 0 = Mujer
+# 1 = Hombre
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% mutate (Sexo = case_match(Sexo, 
+                                                         1 ~ 1, # 1 = Hombre
+                                                         2 ~ 0)) # 2 = Mujer
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%  mutate (Sexo = case_match(Sexo,
+                                                               0 ~ 1, # 0 = Hombre
+                                                               1 ~ 0)) # 1 = Mujer
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>% mutate (Sexo = case_match(Sexo, 
+                                                               1 ~ 0, # 1 = Mujer
+                                                               2 ~ 1)) # 2 = Hombre
+
+proc_PACES_2019 <- proc_PACES_2019 %>%  mutate (Sexo = case_match(Sexo, 
+                                                                   1 ~ 1, # 1 = Hombre
+                                                                   2 ~ 0, # 2 = Mujer
+                                                                   3 ~ NA)) # 3 = Otro
 
 
 #Homologación y limpieza de variables-------------------------------------------
@@ -577,6 +604,40 @@ print(resultado_aula_2019$total$std.alpha)
 
 #Guardado de base---------------------------------------------------------------
 
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(
+    indice_voto = ifelse(indice_voto == 4 | round(indice_voto, 6) == 3.666667, NA, indice_voto)
+  )
+
+#Recodificar expectativa de voto com dummy--------------------------------------
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate(
+    indice_voto = (max(indice_voto, na.rm = TRUE) + min(indice_voto, na.rm = TRUE)) - indice_voto
+  )
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+proc_ICCS_2016 <- proc_ICCS_2016  %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+
+
 # 2. Guardar las bases en formato .sav
 # Usamos haven::write_sav para mantener la compatibilidad con SPSS
 
@@ -584,8 +645,6 @@ saveRDS(proc_CIVED_1999, "output/data_procesada/proc_CIVED_1999.rds")
 saveRDS(proc_ICCS_2009,  "output/data_procesada/proc_ICCS_2009.rds")
 saveRDS(proc_ICCS_2016,  "output/data_procesada/proc_ICCS_2016.rds")
 saveRDS(proc_PACES_2019,  "output/data_procesada/proc_PACES_2019.rds")
-
-message("Bases exportadas con éxito. Verifica la carpeta output/data_procesada")
 
 #Juntar las bases de datos------------------------------------------------------
 

@@ -22,7 +22,7 @@ pacman::p_load(tidyverse,
                stargazer,
                modelsummary,
                summarytools,
-               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest)
+               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest, ggplot2, survey, scales)
 
 ```
 
@@ -40,32 +40,248 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
+#### Tabla de descriptivos
+
+```{r funciones-motor}
+calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
+  faltantes <- setdiff(c(var, peso, cluster), names(datos))
+  if (length(faltantes) > 0) {
+    stop("No encuentro esta(s) columna(s) en la base: ", paste(faltantes, collapse = ", "),
+         "\nColumnas disponibles: ", paste(names(datos), collapse = ", "))
+  }
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
+                       weights = as.formula(paste0("~", peso)),
+                       data = datos)
+  res <- svyciprop(formula_var, diseno, method = "likelihood", na.rm = TRUE)
+  data.frame(promedio = as.numeric(res), ic_inf = attr(res, "ci")[1],
+             ic_sup = attr(res, "ci")[2], n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+calc_media_sd_ponderada <- function(datos, var, peso) {
+  faltantes <- setdiff(c(var, peso), names(datos))
+  if (length(faltantes) > 0) {
+    stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  }
+  x <- datos[[var]]; w <- datos[[peso]]
+  ok <- !is.na(x) & !is.na(w)
+  x <- x[ok]; w <- w[ok]
+  if (length(x) == 0) stop("La variable '", var, "' quedó sin datos válidos tras quitar NA.")
+  m <- stats::weighted.mean(x, w)
+  v <- sum(w * (x - m)^2) / sum(w)
+  data.frame(media = m, sd = sqrt(v), n = length(x), row.names = NULL)
+}
+
+colapsar_escuela <- function(datos, id_escuela, vars, peso_esc) {
+  faltantes <- setdiff(c(id_escuela, vars, peso_esc), names(datos))
+  if (length(faltantes) > 0) {
+    stop("No encuentro esta(s) columna(s) al colapsar: ", paste(faltantes, collapse = ", "))
+  }
+  datos %>%
+    distinct(.data[[id_escuela]], .keep_all = TRUE) %>%
+    select(all_of(c(id_escuela, vars, peso_esc)))
+}
+```
+
+```{r configuracion}
+config <- list(
+  CIVED_1999 = list(
+    df = CIVED_1999,
+    id_escuela = "id_colegio",      # <- ajusta al nombre real
+    peso_est   = "Peso_est",
+    peso_esc   = "Peso_esc",
+    vars_ind_prop = list(
+      region_rm            = "region_rm",
+      voto                 = "voto",
+      libro_alto           = "libro_alto",
+      educ_padres_univ     = "nivel_educ_univ",
+      particip_votaciones  = NA,   # no disponible en CIVED 1999
+      particip_asambleas   = NA,
+      aprendizaje_voto     = "aprendizaje_voto"
+    ),
+    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
+    vars_esc_media = list(
+      clima_aula_escuela      = "clima_aula_escuela",
+      particip_votaciones_esc = NA,
+      particip_asambleas_esc  = NA
+    )
+  ),
+  ICCS_2009 = list(
+    df = ICCS_2009,
+    id_escuela = "id_colegio",
+    peso_est   = "Peso_est",
+    peso_esc   = "Peso_esc",
+    vars_ind_prop = list(
+      region_rm            = "region_rm",
+      voto                 = "voto",
+      libro_alto           = "libro_alto",
+      educ_padres_univ     = "nivel_educ_univ",
+      particip_votaciones  = "particip_votaciones",
+      particip_asambleas   = "particip_asambleas",
+      aprendizaje_voto     = NA   # no disponible en ICCS 2009
+    ),
+    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
+    vars_esc_media = list(
+      clima_aula_escuela      = "clima_aula_escuela",
+      particip_votaciones_esc = "particip_votaciones",
+      particip_asambleas_esc  = "particip_asambleas"
+    )
+  ),
+  ICCS_2016 = list(
+    df = ICCS_2016,
+    id_escuela = "id_colegio",
+    peso_est   = "Peso_est",
+    peso_esc   = "Peso_esc",
+    vars_ind_prop = list(
+      region_rm            = "region_rm",
+      voto                 = "voto",
+      libro_alto           = "libro_alto",
+      educ_padres_univ     = "nivel_educ_univ",
+      particip_votaciones  = "particip_votaciones",
+      particip_asambleas   = "particip_asambleas",
+      aprendizaje_voto     = "aprendizaje_voto"
+    ),
+    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
+    vars_esc_media = list(
+      clima_aula_escuela      = "clima_aula_escuela",
+      particip_votaciones_esc = "particip_votaciones",
+      particip_asambleas_esc  = "particip_asambleas"
+    )
+  ),
+  PACES_2019 = list(
+    df = PACES_2019,
+    id_escuela = "id_colegio",
+    peso_est   = "Peso_est",
+    peso_esc   = "Peso_esc",
+    vars_ind_prop = list(
+      region_rm            = "region_rm",
+      voto                 = "voto",
+      libro_alto           = "libro_alto",
+      educ_padres_univ     = "nivel_educ_univ",
+      particip_votaciones  = "particip_votaciones",
+      particip_asambleas   = "particip_asambleas",
+      aprendizaje_voto     = NA   # no disponible en PACES 2019
+    ),
+    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
+    vars_esc_media = list(
+      clima_aula_escuela      = "clima_aula_escuela",
+      particip_votaciones_esc = "particip_votaciones",
+      particip_asambleas_esc  = "particip_asambleas"
+    )
+  )
+)
+```
+
+#### Tabla 1
+
+```{r tabla1-individual}
+fila_prop_tabla1 <- function(config, campo) {
+  sapply(config, function(coh) {
+    colname <- coh$vars_ind_prop[[campo]]
+    if (is.null(colname) || is.na(colname)) return("N/D")
+    tryCatch(
+      fmt_prop(calc_prop_ic_ponderado(coh$df, colname, coh$peso_est, coh$id_escuela)),
+      error = function(e) paste0("ERROR: ", conditionMessage(e))
+    )
+  })
+}
+
+fila_media_tabla1 <- function(config, campo) {
+  sapply(config, function(coh) {
+    colname <- coh$vars_ind_media[[campo]]
+    if (is.null(colname) || is.na(colname)) return("N/D")
+    tryCatch(
+      fmt_media_sd(calc_media_sd_ponderada(coh$df, colname, coh$peso_est)),
+      error = function(e) paste0("ERROR: ", conditionMessage(e))
+    )
+  })
+}
+
+fila_n_estudiantes <- function(config) sapply(config, function(coh) nrow(coh$df))
+
+generar_tabla1 <- function(config) {
+  nombres_cohortes <- names(config)
+  tabla <- data.frame(
+    Variable = c(
+      "N estudiantes",
+      "% Región Metropolitana",
+      "Expectativa de voto (%) [IC 95%]",
+      "Libros en el hogar, categoría alta (%) [IC 95%]",
+      "Nivel educativo padres, universitario (%) [IC 95%]",
+      "Clima de aula, M (SD)",
+      "Participación en votaciones escolares (%) [IC 95%]",
+      "Participación en asambleas (%) [IC 95%]",
+      "Aprendizaje sobre el voto (%) [IC 95%]"
+    ),
+    stringsAsFactors = FALSE
+  )
+  tabla[nombres_cohortes] <- NA_character_
+  tabla[1, nombres_cohortes] <- as.character(fila_n_estudiantes(config))
+  tabla[2, nombres_cohortes] <- fila_prop_tabla1(config, "region_rm")
+  tabla[3, nombres_cohortes] <- fila_prop_tabla1(config, "voto")
+  tabla[4, nombres_cohortes] <- fila_prop_tabla1(config, "libro_alto")
+  tabla[5, nombres_cohortes] <- fila_prop_tabla1(config, "educ_padres_univ")
+  tabla[6, nombres_cohortes] <- fila_media_tabla1(config, "clima_aula_ind")
+  tabla[7, nombres_cohortes] <- fila_prop_tabla1(config, "particip_votaciones")
+  tabla[8, nombres_cohortes] <- fila_prop_tabla1(config, "particip_asambleas")
+  tabla[9, nombres_cohortes] <- fila_prop_tabla1(config, "aprendizaje_voto")
+  tabla
+}
+
+tabla1 <- generar_tabla1(config)
+print(tabla1, row.names = FALSE)
+```
+
+#### Tabla 2
+
+```{r}
+
+
+
+```
+
+
+
+
 ### Grafico de crecimiento
 
 ```{r}
 
-promedios_voto <- data.frame(
-  base = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"),
-  promedio = c(
-    mean(CIVED_1999$voto, na.rm = TRUE),
-    mean(ICCS_2009$voto, na.rm = TRUE),
-    mean(ICCS_2016$voto, na.rm = TRUE),
-    mean(PACES_2019$voto, na.rm = TRUE)
+# Función: proporción ponderada + IC 95% (diseño complejo) para una variable dicotómica
+calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
+                       weights = as.formula(paste0("~", peso)),
+                       data = datos)
+  res <- svyciprop(formula_var, diseno, method = "likelihood", na.rm = TRUE)
+  data.frame(
+    promedio = as.numeric(res),
+    ic_inf = attr(res, "ci")[1],
+    ic_sup = attr(res, "ci")[2],
+    n = nrow(datos),
+    row.names = NULL
   )
+}
+
+promedios_voto <- bind_rows(
+  calc_prop_ic_ponderado(CIVED_1999, "voto", "Peso_est", "id_colegio") %>% mutate(base = "CIVED_1999"),
+  calc_prop_ic_ponderado(ICCS_2009,  "voto", "Peso_est", "id_colegio") %>% mutate(base = "ICCS_2009"),
+  calc_prop_ic_ponderado(ICCS_2016,  "voto", "Peso_est", "id_colegio") %>% mutate(base = "ICCS_2016"),
+  calc_prop_ic_ponderado(PACES_2019, "voto", "Peso_est", "id_colegio") %>% mutate(base = "PACES_2019")
 )
 
-# Ordenar las bases cronológicamente en el eje X
 promedios_voto$base <- factor(promedios_voto$base,
                                levels = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"))
 
-# --- Gráfico de barras ----------------------------------------------------
 ggplot(promedios_voto, aes(x = base, y = promedio)) +
   geom_col(fill = "steelblue", width = 0.6) +
-  geom_text(aes(label = round(promedio, 2)), vjust = -0.5, size = 4) +
+  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.15, linewidth = 0.6) +
+  geom_text(aes(y = ic_sup, label = percent(promedio, accuracy = 0.1)), vjust = -0.7, size = 4) +
   labs(
-    title = "Promedio de voto por base de datos",
+    title = "Proporción de expectativa de voto alta por base de datos",
+    subtitle = "Barras de error: IC 95% (diseño complejo, ponderado por Peso_est)",
     x = "Base de datos (año)",
-    y = "Promedio de voto"
+    y = "Proporción"
   ) +
   theme_minimal(base_size = 13)
 
@@ -75,32 +291,89 @@ ggplot(promedios_voto, aes(x = base, y = promedio)) +
 ### Gráfico promedio de variables contextos
 
 #### Clima aula
+##### indiviual Nivel 1
 ```{r}
 
-promedio_clima_aula <- data.frame(
-  base = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"),
-  promedio = c(
-    mean(CIVED_1999$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2009$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2016$clima_aula_escuela, na.rm = TRUE),
-    mean(PACES_2019$clima_aula_escuela, na.rm = TRUE)
-  )
+library(survey); library(dplyr); library(ggplot2)
+
+niveles <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+
+# ---------- Funciones ----------
+calc_media_ic_ponderada <- function(datos, var, peso, cluster) {
+  faltantes <- setdiff(c(var, peso, cluster), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
+                       weights = as.formula(paste0("~", peso)), data = datos)
+  res <- svymean(formula_var, diseno, na.rm = TRUE)
+  ci <- confint(res)
+  data.frame(promedio = as.numeric(res), ic_inf = ci[1], ic_sup = ci[2],
+             n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+colapsar_escuela <- function(datos) {
+  datos %>% distinct(id_colegio, .keep_all = TRUE) %>%
+    select(id_colegio, clima_aula_escuela, Peso_esc)
+}
+
+calc_media_ic_ponderada_esc <- function(datos, var, peso) {
+  faltantes <- setdiff(c(var, peso), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = ~1, weights = as.formula(paste0("~", peso)), data = datos)
+  res <- svymean(formula_var, diseno, na.rm = TRUE)
+  ci <- confint(res)
+  data.frame(promedio = as.numeric(res), ic_inf = ci[1], ic_sup = ci[2],
+             n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+# ---------- VERSIÓN 1: nivel estudiante (clima_aula_ind) ----------
+clima_estudiante <- bind_rows(
+  calc_media_ic_ponderada(CIVED_1999, "indice_aula_ind", "Peso_est", "id_colegio") %>% mutate(base = "CIVED_1999"),
+  calc_media_ic_ponderada(ICCS_2009,  "indice_aula_ind", "Peso_est", "id_colegio") %>% mutate(base = "ICCS_2009"),
+  calc_media_ic_ponderada(ICCS_2016,  "indice_aula_ind", "Peso_est", "id_colegio") %>% mutate(base = "ICCS_2016"),
+  calc_media_ic_ponderada(PACES_2019, "indice_aula_ind", "Peso_est", "id_colegio") %>% mutate(base = "PACES_2019")
 )
+clima_estudiante$base <- factor(clima_estudiante$base, levels = niveles)
 
-# Ordenar las bases cronológicamente en el eje X
-promedio_clima_aula$base <- factor(promedio_clima_aula$base,
-                               levels = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"))
-
-
-ggplot(promedio_clima_aula, aes(x = base, y = promedio)) +
+ggplot(clima_estudiante, aes(x = base, y = promedio)) +
   geom_col(fill = "steelblue", width = 0.6) +
-  geom_text(aes(label = round(promedio, 2)), vjust = -0.5, size = 4) +
-  labs(
-    title = "Promedio de indice clima del aula por base de datos",
-    x = "Base de datos (año)",
-    y = "Promedio del clima del aula"
-  ) +
+  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.15, linewidth = 0.6) +
+  geom_text(aes(y = ic_sup, label = round(promedio, 2)), vjust = -0.7, size = 4) +
+  labs(title = "Clima de aula — nivel estudiante",
+       subtitle = "Promedio ponderado (Peso_est) con IC 95%, por base de datos",
+       x = "Base de datos (año)", y = "Promedio clima_aula_ind") +
   theme_minimal(base_size = 13)
+
+
+```
+
+##### Escuela Nivel 2
+
+```{r}
+
+CIVED_1999_esc  <- colapsar_escuela(CIVED_1999)
+ICCS_2009_esc   <- colapsar_escuela(ICCS_2009)
+ICCS_2016_esc   <- colapsar_escuela(ICCS_2016)
+PACES_2019_esc  <- colapsar_escuela(PACES_2019)
+
+clima_escuela <- bind_rows(
+  calc_media_ic_ponderada_esc(CIVED_1999_esc, "clima_aula_escuela", "Peso_esc") %>% mutate(base = "CIVED_1999"),
+  calc_media_ic_ponderada_esc(ICCS_2009_esc,  "clima_aula_escuela", "Peso_esc") %>% mutate(base = "ICCS_2009"),
+  calc_media_ic_ponderada_esc(ICCS_2016_esc,  "clima_aula_escuela", "Peso_esc") %>% mutate(base = "ICCS_2016"),
+  calc_media_ic_ponderada_esc(PACES_2019_esc, "clima_aula_escuela", "Peso_esc") %>% mutate(base = "PACES_2019")
+)
+clima_escuela$base <- factor(clima_escuela$base, levels = niveles)
+
+ggplot(clima_escuela, aes(x = base, y = promedio)) +
+  geom_col(fill = "darkorange3", width = 0.6) +
+  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.15, linewidth = 0.6) +
+  geom_text(aes(y = ic_sup, label = round(promedio, 2)), vjust = -0.7, size = 4) +
+  labs(title = "Clima de aula — nivel escuela",
+       subtitle = "Promedio ponderado (Peso_esc corregido) con IC 95%, por base de datos",
+       x = "Base de datos (año)", y = "Promedio clima_aula_escuela") +
+  theme_minimal(base_size = 13)
+
 ```
 
 #### Asamblea

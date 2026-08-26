@@ -319,6 +319,7 @@ for (nombre in c("b1", "b2", "b3", "b4")) {
 ### Modeloamiento con pendientes aleatorias
 
 ## Centrado aula ind
+
 ```{r}
 library(dplyr)
 
@@ -354,7 +355,6 @@ b4 <- b4 %>%
   ) %>%
   ungroup()
 ```
-
 
 ### CIVED 1999
 
@@ -726,7 +726,6 @@ tab_model(
 )
 ```
 
-
 ```{r}
 
 modelar_y_guardar <- function(datos, nombre_archivo) {
@@ -838,7 +837,9 @@ modelar_y_guardar(datos = b4, nombre_archivo = "PACES_2019_Modelo")
 ```
 
 # Modelamiento con participación como variabl contextual
-## Centrado de participación individual 
+
+## Centrado de participación individual
+
 ```{r}
 
 # --- BASE 2: ICCS 2009 ---
@@ -864,8 +865,8 @@ b4 <- b4 %>%
 
 ```
 
-
 ## Centrado de perpcesión de aprendizaje voto
+
 ```{r}
 
 b1 <- b1 %>%
@@ -881,8 +882,8 @@ b3 <- b3 %>%
 
 ```
 
-
 # ICCS 2009
+
 ```{r}
 # Modelo con los efectos fijos aditivos (sin cruzar variables)
 m2_sin_interaccion <- lmer(voto ~ libro + nivel_educ + 
@@ -926,6 +927,7 @@ tab_model(m2_sin_interaccion, m2_int_educ_voto, m2_int_libro_voto, m2_int_educ_a
 ```
 
 # ICCS 2016
+
 ```{r}
 
 # ==============================================================================
@@ -979,6 +981,7 @@ tab_model(m3_sin_interaccion, m3_int_educ_voto, m3_int_libro_voto, m3_int_educ_a
 ```
 
 # PACES 2019
+
 ```{r}
 
 # ==============================================================================
@@ -1030,17 +1033,10 @@ tab_model(m4_sin_interaccion, m4_int_educ_voto, m4_int_libro_voto, m4_int_educ_a
 
 ```
 
-
-
-
-
-
-
-
-
 ##Modelamiento con K7
 
 ## CIVED 1999
+
 ```{r}
 
 # --- MODELO BASE: Sin Interacción ---
@@ -1096,13 +1092,10 @@ m3_int_libro_k7 <- lmer(voto ~ nivel_educ + clima_aula_escuela + K7_centrada +
 
 ```
 
-
-
-
-
 ### Modelamiento con todas las variables contextuales controlando
 
 ## CIVED 1999
+
 ```{r}
 
 # ==============================================================================
@@ -1178,6 +1171,7 @@ tab_model(m1_base_fijo, m1_base_pendientes,
 ```
 
 ## ICCS 2009
+
 ```{r}
 
 # ==============================================================================
@@ -1273,6 +1267,7 @@ tab_model(m2_base_fijo, m2_base_pendientes,
 ```
 
 ## ICCS 2016
+
 ```{r}
 # ==============================================================================
 # BLOQUE 1: MODELOS BASE (Efectos principales directos - ICCS 2016)
@@ -1382,6 +1377,7 @@ tab_model(m3_base_fijo, m3_base_pendientes,
 ```
 
 ## PACES 2019
+
 ```{r}
 # ==============================================================================
 # BLOQUE 1: MODELOS BASE (Efectos principales directos - 2019)
@@ -1474,9 +1470,3 @@ tab_model(m4_base_fijo, m4_base_pendientes,
           string.p = "p-valor",
           show.ci = FALSE)
 ```
-
-
-
-
-
-
