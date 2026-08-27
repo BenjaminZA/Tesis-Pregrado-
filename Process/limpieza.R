@@ -68,7 +68,7 @@ proc_CIVED_1999 <- CIVED_1999 %>%
                 M1 = CS5M1,
                 M2 = CS5M2,
                 K7 = CS4K7,
-                Nive_educ = CSGEDUM,
+                nivel_educ = CSGEDUM,
                 Peso_est = TOTWGT,
                 WGTADJ1,
                 WGTFAC1,
@@ -636,7 +636,38 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
     voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
   )
 
+# Recodificar Libro como Dummy: Más de 100 libros 
 
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1)) 
+
+proc_ICCS_2009<- proc_ICCS_2009 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+                                               
+proc_ICCS_2016<- proc_ICCS_2016 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+
+proc_PACES_2019<- proc_PACES_2019 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+
+# Recodificar Nivel educa de los padres
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate (nivel_educ  = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1)) 
+
+proc_ICCS_2009<- proc_ICCS_2009 %>% 
+  mutate (nivel_educ  = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_ICCS_2016<- proc_ICCS_2016 %>% 
+  mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_PACES_2019<- proc_PACES_2019 %>% 
+  mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+# Renombrar---------------------------------------------------------------------
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  rename(aprendizaje_voto = K7)
 
 # 2. Guardar las bases en formato .sav
 # Usamos haven::write_sav para mantener la compatibilidad con SPSS

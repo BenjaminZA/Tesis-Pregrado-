@@ -40,14 +40,39 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
-#### Tabla de descriptivos
+#### Recodificación Sexo 
 
-```{r funciones-motor}
+```{r}
+
+CIVED_1999 <- CIVED_1999 %>% mutate (Sexo_cod = case_match(Sexo,
+  0 ~ "Mujer",
+  1 ~ "Hombre"
+))
+
+ICCS_2009 <- ICCS_2009 %>% mutate (Sexo_cod = case_match(Sexo,
+  0 ~ "Mujer",
+  1 ~ "Hombre"
+))
+
+ICCS_2016 <- ICCS_2016 %>% mutate (Sexo_cod = case_match(Sexo,
+  0 ~ "Mujer",
+  1 ~ "Hombre"
+))
+
+PACES_2019 <- PACES_2019 %>% mutate (Sexo_cod = case_match(Sexo,
+  0 ~ "Mujer",
+  1 ~ "Hombre"
+))
+
+```
+
+#### Función Promedios e intervalos de confianza
+
+```{r calc-promedios-generalizada}
 calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
   faltantes <- setdiff(c(var, peso, cluster), names(datos))
   if (length(faltantes) > 0) {
-    stop("No encuentro esta(s) columna(s) en la base: ", paste(faltantes, collapse = ", "),
-         "\nColumnas disponibles: ", paste(names(datos), collapse = ", "))
+    stop("No encuentro esta(s) columna(s) en la base: ", paste(faltantes, collapse = ", "))
   }
   formula_var <- as.formula(paste0("~", var))
   diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
@@ -55,192 +80,92 @@ calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
                        data = datos)
   res <- svyciprop(formula_var, diseno, method = "likelihood", na.rm = TRUE)
   data.frame(promedio = as.numeric(res), ic_inf = attr(res, "ci")[1],
-             ic_sup = attr(res, "ci")[2], n = sum(!is.na(datos[[var]])), row.names = NULL)
+             ic_sup = attr(res, "ci")[2], n = nrow(datos), row.names = NULL)
 }
 
-calc_media_sd_ponderada <- function(datos, var, peso) {
-  faltantes <- setdiff(c(var, peso), names(datos))
-  if (length(faltantes) > 0) {
-    stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
-  }
-  x <- datos[[var]]; w <- datos[[peso]]
-  ok <- !is.na(x) & !is.na(w)
-  x <- x[ok]; w <- w[ok]
-  if (length(x) == 0) stop("La variable '", var, "' quedó sin datos válidos tras quitar NA.")
-  m <- stats::weighted.mean(x, w)
-  v <- sum(w * (x - m)^2) / sum(w)
-  data.frame(media = m, sd = sqrt(v), n = length(x), row.names = NULL)
-}
-
-colapsar_escuela <- function(datos, id_escuela, vars, peso_esc) {
-  faltantes <- setdiff(c(id_escuela, vars, peso_esc), names(datos))
-  if (length(faltantes) > 0) {
-    stop("No encuentro esta(s) columna(s) al colapsar: ", paste(faltantes, collapse = ", "))
-  }
-  datos %>%
-    distinct(.data[[id_escuela]], .keep_all = TRUE) %>%
-    select(all_of(c(id_escuela, vars, peso_esc)))
-}
-```
-
-```{r configuracion}
-config <- list(
-  CIVED_1999 = list(
-    df = CIVED_1999,
-    id_escuela = "id_colegio",      # <- ajusta al nombre real
-    peso_est   = "Peso_est",
-    peso_esc   = "Peso_esc",
-    vars_ind_prop = list(
-      region_rm            = "region_rm",
-      voto                 = "voto",
-      libro_alto           = "libro_alto",
-      educ_padres_univ     = "nivel_educ_univ",
-      particip_votaciones  = NA,   # no disponible en CIVED 1999
-      particip_asambleas   = NA,
-      aprendizaje_voto     = "aprendizaje_voto"
-    ),
-    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
-    vars_esc_media = list(
-      clima_aula_escuela      = "clima_aula_escuela",
-      particip_votaciones_esc = NA,
-      particip_asambleas_esc  = NA
-    )
-  ),
-  ICCS_2009 = list(
-    df = ICCS_2009,
-    id_escuela = "id_colegio",
-    peso_est   = "Peso_est",
-    peso_esc   = "Peso_esc",
-    vars_ind_prop = list(
-      region_rm            = "region_rm",
-      voto                 = "voto",
-      libro_alto           = "libro_alto",
-      educ_padres_univ     = "nivel_educ_univ",
-      particip_votaciones  = "particip_votaciones",
-      particip_asambleas   = "particip_asambleas",
-      aprendizaje_voto     = NA   # no disponible en ICCS 2009
-    ),
-    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
-    vars_esc_media = list(
-      clima_aula_escuela      = "clima_aula_escuela",
-      particip_votaciones_esc = "particip_votaciones",
-      particip_asambleas_esc  = "particip_asambleas"
-    )
-  ),
-  ICCS_2016 = list(
-    df = ICCS_2016,
-    id_escuela = "id_colegio",
-    peso_est   = "Peso_est",
-    peso_esc   = "Peso_esc",
-    vars_ind_prop = list(
-      region_rm            = "region_rm",
-      voto                 = "voto",
-      libro_alto           = "libro_alto",
-      educ_padres_univ     = "nivel_educ_univ",
-      particip_votaciones  = "particip_votaciones",
-      particip_asambleas   = "particip_asambleas",
-      aprendizaje_voto     = "aprendizaje_voto"
-    ),
-    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
-    vars_esc_media = list(
-      clima_aula_escuela      = "clima_aula_escuela",
-      particip_votaciones_esc = "particip_votaciones",
-      particip_asambleas_esc  = "particip_asambleas"
-    )
-  ),
-  PACES_2019 = list(
-    df = PACES_2019,
-    id_escuela = "id_colegio",
-    peso_est   = "Peso_est",
-    peso_esc   = "Peso_esc",
-    vars_ind_prop = list(
-      region_rm            = "region_rm",
-      voto                 = "voto",
-      libro_alto           = "libro_alto",
-      educ_padres_univ     = "nivel_educ_univ",
-      particip_votaciones  = "particip_votaciones",
-      particip_asambleas   = "particip_asambleas",
-      aprendizaje_voto     = NA   # no disponible en PACES 2019
-    ),
-    vars_ind_media = list(clima_aula_ind = "clima_aula_ind"),
-    vars_esc_media = list(
-      clima_aula_escuela      = "clima_aula_escuela",
-      particip_votaciones_esc = "particip_votaciones",
-      particip_asambleas_esc  = "particip_asambleas"
-    )
-  )
-)
-```
-
-#### Tabla 1
-
-```{r tabla1-individual}
-fila_prop_tabla1 <- function(config, campo) {
-  sapply(config, function(coh) {
-    colname <- coh$vars_ind_prop[[campo]]
-    if (is.null(colname) || is.na(colname)) return("N/D")
-    tryCatch(
-      fmt_prop(calc_prop_ic_ponderado(coh$df, colname, coh$peso_est, coh$id_escuela)),
-      error = function(e) paste0("ERROR: ", conditionMessage(e))
-    )
+calc_promedios_ic <- function(var, peso = "Peso_est", cluster = "id_colegio",
+                               bases = list(CIVED_1999 = CIVED_1999,
+                                            ICCS_2009  = ICCS_2009,
+                                            ICCS_2016  = ICCS_2016,
+                                            PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite (queda N/D).")
+      return(NULL)
+    }
+    calc_prop_ic_ponderado(datos, var, peso, cluster) %>% mutate(base = nombre_base)
   })
+  bind_rows(resultados) %>%
+    mutate(base = factor(base, levels = names(bases)))
 }
-
-fila_media_tabla1 <- function(config, campo) {
-  sapply(config, function(coh) {
-    colname <- coh$vars_ind_media[[campo]]
-    if (is.null(colname) || is.na(colname)) return("N/D")
-    tryCatch(
-      fmt_media_sd(calc_media_sd_ponderada(coh$df, colname, coh$peso_est)),
-      error = function(e) paste0("ERROR: ", conditionMessage(e))
-    )
-  })
-}
-
-fila_n_estudiantes <- function(config) sapply(config, function(coh) nrow(coh$df))
-
-generar_tabla1 <- function(config) {
-  nombres_cohortes <- names(config)
-  tabla <- data.frame(
-    Variable = c(
-      "N estudiantes",
-      "% Región Metropolitana",
-      "Expectativa de voto (%) [IC 95%]",
-      "Libros en el hogar, categoría alta (%) [IC 95%]",
-      "Nivel educativo padres, universitario (%) [IC 95%]",
-      "Clima de aula, M (SD)",
-      "Participación en votaciones escolares (%) [IC 95%]",
-      "Participación en asambleas (%) [IC 95%]",
-      "Aprendizaje sobre el voto (%) [IC 95%]"
-    ),
-    stringsAsFactors = FALSE
-  )
-  tabla[nombres_cohortes] <- NA_character_
-  tabla[1, nombres_cohortes] <- as.character(fila_n_estudiantes(config))
-  tabla[2, nombres_cohortes] <- fila_prop_tabla1(config, "region_rm")
-  tabla[3, nombres_cohortes] <- fila_prop_tabla1(config, "voto")
-  tabla[4, nombres_cohortes] <- fila_prop_tabla1(config, "libro_alto")
-  tabla[5, nombres_cohortes] <- fila_prop_tabla1(config, "educ_padres_univ")
-  tabla[6, nombres_cohortes] <- fila_media_tabla1(config, "clima_aula_ind")
-  tabla[7, nombres_cohortes] <- fila_prop_tabla1(config, "particip_votaciones")
-  tabla[8, nombres_cohortes] <- fila_prop_tabla1(config, "particip_asambleas")
-  tabla[9, nombres_cohortes] <- fila_prop_tabla1(config, "aprendizaje_voto")
-  tabla
-}
-
-tabla1 <- generar_tabla1(config)
-print(tabla1, row.names = FALSE)
 ```
 
-#### Tabla 2
+
+```{r promedios-por-variable}
+promedios_voto  <- calc_promedios_ic("voto")
+promedios_libro <- calc_promedios_ic("libro")
+promedios_educ  <- calc_promedios_ic("nivel_educ")
+promedios_particip_votaciones <- calc_promedios_ic("particip_votaciones")
+promedios_particip_asambleas  <- calc_promedios_ic("particip_asambleas")
+promedios_aprendizaje_voto    <- calc_promedios_ic("aprendizaje_voto")
+```
+
+### Tabla de descriptivos
+
+####Proporsión Voto de votos por cohorte
+
+```{r tabla-voto-simple}
+tabla_voto_simple <- promedios_voto %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
+  )
+
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_voto_simple)
+print(doc, target = "../output/tabla_promedio_voto.docx")
+
+
+tabla_voto_simple
+```
+
+#### Proporsión de Hombres por cohorte
+
+```{r}
+tabla_sexo_simple <- promedios_sexo %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
+  )
+
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_voto_simple)
+print(doc, target = "../output/tabla_promedio_voto.docx")
+
+
+tabla_voto_simple
+```
+
+#### Proporsión de Personas con más de 100 libros
+
+```{r}
+
+```
+
+#### Proporsión de Estudiantes con algun padre universitario
 
 ```{r}
 
 
 
 ```
-
-
 
 
 ### Grafico de crecimiento
