@@ -47,7 +47,7 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 CIVED_1999 <- CIVED_1999 %>% mutate (Sexo_cod = case_match(Sexo,
   0 ~ "Mujer",
   1 ~ "Hombre"
-))
+)) 
 
 ICCS_2009 <- ICCS_2009 %>% mutate (Sexo_cod = case_match(Sexo,
   0 ~ "Mujer",
@@ -66,9 +66,21 @@ PACES_2019 <- PACES_2019 %>% mutate (Sexo_cod = case_match(Sexo,
 
 ```
 
+```{r}
+bases <-list(CIVED_1999, ICCS_2009, ICCS_2016, PACES_2019)
+
+for (i in seq_along(bases)) {
+  bases[[i]] <- bases[[i]] %>% 
+    mutate(Sexo = as.numeric(Sexo))
+}
+
+```
+
+
 #### Función Promedios e intervalos de confianza
 
-```{r calc-promedios-generalizada}
+```{r funciones-motor}
+# ===================== NIVEL INDIVIDUAL - PROPORCIONES (variables dicotómicas) =====================
 calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
   faltantes <- setdiff(c(var, peso, cluster), names(datos))
   if (length(faltantes) > 0) {
@@ -80,7 +92,7 @@ calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
                        data = datos)
   res <- svyciprop(formula_var, diseno, method = "likelihood", na.rm = TRUE)
   data.frame(promedio = as.numeric(res), ic_inf = attr(res, "ci")[1],
-             ic_sup = attr(res, "ci")[2], n = nrow(datos), row.names = NULL)
+             ic_sup = attr(res, "ci")[2], n = sum(!is.na(datos[[var]])), row.names = NULL)
 }
 
 calc_promedios_ic <- function(var, peso = "Peso_est", cluster = "id_colegio",
@@ -99,16 +111,192 @@ calc_promedios_ic <- function(var, peso = "Peso_est", cluster = "id_colegio",
   bind_rows(resultados) %>%
     mutate(base = factor(base, levels = names(bases)))
 }
+
+# ===================== NIVEL INDIVIDUAL - MEDIAS (variables continuas, ej. indice_aula_ind) =====================
+calc_media_ic_ponderada <- function(datos, var, peso, cluster) {
+  faltantes <- setdiff(c(var, peso, cluster), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
+                       weights = as.formula(paste0("~", peso)), data = datos)
+  res <- svymean(formula_var, diseno, na.rm = TRUE)
+  ci <- confint(res)
+  data.frame(promedio = as.numeric(res), ic_inf = ci[1], ic_sup = ci[2],
+             n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+calc_promedios_ic_media <- function(var, peso = "Peso_est", cluster = "id_colegio",
+                                     bases = list(CIVED_1999 = CIVED_1999,
+                                                  ICCS_2009  = ICCS_2009,
+                                                  ICCS_2016  = ICCS_2016,
+                                                  PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite (queda N/D).")
+      return(NULL)
+    }
+    calc_media_ic_ponderada(datos, var, peso, cluster) %>% mutate(base = nombre_base)
+  })
+  bind_rows(resultados) %>%
+    mutate(base = factor(base, levels = names(bases)))
+}
+
+# ===================== NIVEL ESCUELA - COLAPSO Y MEDIAS =====================
+colapsar_escuela <- function(datos, id_escuela, var, peso_esc) {
+  faltantes <- setdiff(c(id_escuela, var, peso_esc), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s) al colapsar: ", paste(faltantes, collapse = ", "))
+  datos %>% distinct(.data[[id_escuela]], .keep_all = TRUE) %>%
+    select(all_of(c(id_escuela, var, peso_esc)))
+}
+
+calc_media_ic_ponderada_esc <- function(datos, var, peso) {
+  faltantes <- setdiff(c(var, peso), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = ~1, weights = as.formula(paste0("~", peso)), data = datos)
+  res <- svymean(formula_var, diseno, na.rm = TRUE)
+  ci <- confint(res)
+  data.frame(promedio = as.numeric(res), ic_inf = ci[1], ic_sup = ci[2],
+             n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+calc_promedios_ic_esc <- function(var, peso = "Peso_esc", id_escuela = "id_colegio",
+                                   bases = list(CIVED_1999 = CIVED_1999,
+                                                ICCS_2009  = ICCS_2009,
+                                                ICCS_2016  = ICCS_2016,
+                                                PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite (queda N/D).")
+      return(NULL)
+    }
+    colapsada <- colapsar_escuela(datos, id_escuela, var, peso)
+    calc_media_ic_ponderada_esc(colapsada, var, peso) %>% mutate(base = nombre_base)
+  })
+  bind_rows(resultados) %>%
+    mutate(base = factor(base, levels = names(bases)))
+}
+
+# ===================== COMBINAR RESULTADOS EN UNA SOLA BASE LARGA =====================
+combinar_promedios <- function(...) {
+  args <- list(...)
+  bind_rows(lapply(names(args), function(nombre) {
+    args[[nombre]] %>% mutate(variable = nombre)
+  }))
+}
+
+combinar_promedios_esc <- function(...) {
+  args <- list(...)
+  bind_rows(lapply(names(args), function(nombre) args[[nombre]] %>% mutate(variable = nombre)))
+}
+
+# ===================== DESCRIPTIVOS ADICIONALES (min, max, asimetría, curtosis) =====================
+describir_variable <- function(var, bases = list(CIVED_1999 = CIVED_1999,
+                                                  ICCS_2009  = ICCS_2009,
+                                                  ICCS_2016  = ICCS_2016,
+                                                  PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite.")
+      return(NULL)
+    }
+    d <- psych::describe(datos[[var]])
+    data.frame(base = nombre_base, n = d$n, min = d$min, max = d$max,
+               asimetria = d$skew, curtosis = d$kurtosis, row.names = NULL)
+  })
+  bind_rows(resultados)
+}
+
+describir_variable_esc <- function(var, id_escuela = "id_colegio", peso_esc = "Peso_esc",
+                                    bases = list(CIVED_1999 = CIVED_1999,
+                                                 ICCS_2009  = ICCS_2009,
+                                                 ICCS_2016  = ICCS_2016,
+                                                 PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite.")
+      return(NULL)
+    }
+    colapsada <- colapsar_escuela(datos, id_escuela, var, peso_esc)
+    d <- psych::describe(colapsada[[var]])
+    data.frame(base = nombre_base, n = d$n, min = d$min, max = d$max,
+               asimetria = d$skew, curtosis = d$kurtosis, row.names = NULL)
+  })
+  bind_rows(resultados)
+}
+
+extraer_valores <- function(var, nivel, id_escuela = "id_colegio", peso_esc = "Peso_esc",
+                             bases = list(CIVED_1999 = CIVED_1999,
+                                          ICCS_2009  = ICCS_2009,
+                                          ICCS_2016  = ICCS_2016,
+                                          PACES_2019 = PACES_2019)) {
+  bind_rows(lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) return(NULL)
+    if (nivel == "Escuela") datos <- colapsar_escuela(datos, id_escuela, var, peso_esc)
+    data.frame(base = nombre_base, nivel = nivel, valor = datos[[var]])
+  }))
+}
+
+# ===================== EXPORTAR TABLAS A WORD =====================
+guardar_tabla_word <- function(tabla, nombre_archivo, carpeta = "../output/Descriptivos") {
+  if (!dir.exists(carpeta)) dir.create(carpeta, recursive = TRUE)
+  doc <- officer::read_docx()
+  doc <- officer::body_add_table(doc, value = tabla)
+  ruta <- file.path(carpeta, nombre_archivo)
+  print(doc, target = ruta)
+  message("Tabla guardada en: ", ruta)
+}
 ```
 
 
 ```{r promedios-por-variable}
 promedios_voto  <- calc_promedios_ic("voto")
+promedios_sexo  <- calc_promedios_ic("Sexo")
 promedios_libro <- calc_promedios_ic("libro")
 promedios_educ  <- calc_promedios_ic("nivel_educ")
-promedios_particip_votaciones <- calc_promedios_ic("particip_votaciones")
-promedios_particip_asambleas  <- calc_promedios_ic("particip_asambleas")
+promedios_particip_votaciones <- calc_promedios_ic("participacion_voto")
+promedios_particip_asambleas  <- calc_promedios_ic("asamblea")
 promedios_aprendizaje_voto    <- calc_promedios_ic("aprendizaje_voto")
+```
+
+```{r funcion-media-individual}
+calc_media_ic_ponderada <- function(datos, var, peso, cluster) {
+  faltantes <- setdiff(c(var, peso, cluster), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
+                       weights = as.formula(paste0("~", peso)), data = datos)
+  res <- svymean(formula_var, diseno, na.rm = TRUE)
+  ci <- confint(res)
+  data.frame(promedio = as.numeric(res), ic_inf = ci[1], ic_sup = ci[2],
+             n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+calc_promedios_ic_media <- function(var, peso = "Peso_est", cluster = "id_colegio",
+                                     bases = list(CIVED_1999 = CIVED_1999,
+                                                  ICCS_2009  = ICCS_2009,
+                                                  ICCS_2016  = ICCS_2016,
+                                                  PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite (queda N/D).")
+      return(NULL)
+    }
+    calc_media_ic_ponderada(datos, var, peso, cluster) %>% mutate(base = nombre_base)
+  })
+  bind_rows(resultados) %>%
+    mutate(base = factor(base, levels = names(bases)))
+}
+```
+
+```{r promedio-clima-individual}
+promedios_clima_ind <- calc_promedios_ic_media("indice_aula_ind")
 ```
 
 ### Tabla de descriptivos
@@ -127,7 +315,7 @@ tabla_voto_simple <- promedios_voto %>%
 
 doc <- officer::read_docx()
 doc <- officer::body_add_table(doc, value = tabla_voto_simple)
-print(doc, target = "../output/tabla_promedio_voto.docx")
+print(doc, target = "../output/Descirptivos/tabla_promedio_voto.docx")
 
 
 tabla_voto_simple
@@ -146,16 +334,32 @@ tabla_sexo_simple <- promedios_sexo %>%
 
 
 doc <- officer::read_docx()
-doc <- officer::body_add_table(doc, value = tabla_voto_simple)
-print(doc, target = "../output/tabla_promedio_voto.docx")
+doc <- officer::body_add_table(doc, value = tabla_sexo_simple)
+print(doc, target = "../output/Descriptivos/tabla_promedio_sexo.docx")
 
 
-tabla_voto_simple
+tabla_sexo_simple
 ```
 
 #### Proporsión de Personas con más de 100 libros
 
 ```{r}
+
+tabla_libro_simple <- promedios_libro %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
+  )
+
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_libro_simple)
+print(doc, target = "../output/Descriptivos/tabla_promedio_libro.docx")
+
+
+tabla_libro_simple
 
 ```
 
@@ -163,54 +367,365 @@ tabla_voto_simple
 
 ```{r}
 
+tabla_nivel_educ_simple <- promedios_educ %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
+  )
 
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_nivel_educ_simple)
+print(doc, target = "../output/Descriptivos/tabla_promedio_nivel_educ.docx")
+
+
+tabla_nivel_educ_simple
 
 ```
 
+#### proporsión de estudiantes participacion_voto
 
-### Grafico de crecimiento
+```{r}
+tabla_participacion_voto_simple <- promedios_particip_votaciones %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
+  )
+
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_participacion_voto_simple)
+print(doc, target = "../output/Descriptivos/tabla_promedio_participacion_voto.docx")
+
+
+tabla_participacion_voto_simple
+```
+
+#### Proporsión de estudiantes participación en asambleas
+
+```{r}
+tabla_asamblea_simple <- promedios_particip_asambleas %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
+  )
+
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_asamblea_simple)
+print(doc, target = "../output/Descriptivos/tabla_promedio_asamblea.docx")
+
+
+tabla_asamblea_simple
+```
+
+#### Proporsión de estudiantes aprendizaje voto
 
 ```{r}
 
-# Función: proporción ponderada + IC 95% (diseño complejo) para una variable dicotómica
-calc_prop_ic_ponderado <- function(datos, var, peso, cluster) {
-  formula_var <- as.formula(paste0("~", var))
-  diseno <- svydesign(ids = as.formula(paste0("~", cluster)),
-                       weights = as.formula(paste0("~", peso)),
-                       data = datos)
-  res <- svyciprop(formula_var, diseno, method = "likelihood", na.rm = TRUE)
-  data.frame(
-    promedio = as.numeric(res),
-    ic_inf = attr(res, "ci")[1],
-    ic_sup = attr(res, "ci")[2],
-    n = nrow(datos),
-    row.names = NULL
+tabla_aprendizaje_voto_simple <- promedios_aprendizaje_voto %>%
+  transmute(
+    Base = base,
+    `Promedio (%)` = round(promedio * 100, 1),
+    `IC 95% inferior` = round(ic_inf * 100, 1),
+    `IC 95% superior` = round(ic_sup * 100, 1)
   )
+
+
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_aprendizaje_voto_simple)
+print(doc, target = "../output/Descriptivos/tabla_promedio_aprendizaje_voto.docx")
+
+
+tabla_aprendizaje_voto_simple
+
+```
+
+### Tabla consolidadda
+
+```{r tabla-consolidada}
+combinar_promedios <- function(...) {
+  args <- list(...)
+  bind_rows(lapply(names(args), function(nombre) {
+    args[[nombre]] %>% mutate(variable = nombre)
+  }))
 }
 
-promedios_voto <- bind_rows(
-  calc_prop_ic_ponderado(CIVED_1999, "voto", "Peso_est", "id_colegio") %>% mutate(base = "CIVED_1999"),
-  calc_prop_ic_ponderado(ICCS_2009,  "voto", "Peso_est", "id_colegio") %>% mutate(base = "ICCS_2009"),
-  calc_prop_ic_ponderado(ICCS_2016,  "voto", "Peso_est", "id_colegio") %>% mutate(base = "ICCS_2016"),
-  calc_prop_ic_ponderado(PACES_2019, "voto", "Peso_est", "id_colegio") %>% mutate(base = "PACES_2019")
+promedios_todas <- combinar_promedios(
+  "Expectativa de voto"                = promedios_voto,
+  "Sexo (hombres)"                     = promedios_sexo,
+  "Libros en el hogar"                 = promedios_libro,
+  "Nivel educ. padres"                 = promedios_educ,
+  "Particip. votaciones"               = promedios_particip_votaciones,
+  "Particip. asambleas"                = promedios_particip_asambleas,
+  "Aprendizaje voto"                   = promedios_aprendizaje_voto,
+  "Clima de aula (índice, individual)" = promedios_clima_ind
 )
 
-promedios_voto$base <- factor(promedios_voto$base,
-                               levels = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"))
+orden_variables <- c("Expectativa de voto", "Sexo (hombres)", "Libros en el hogar",
+                      "Nivel educ. padres", "Particip. votaciones",
+                      "Particip. asambleas", "Aprendizaje voto",
+                      "Clima de aula (índice, individual)")
 
-ggplot(promedios_voto, aes(x = base, y = promedio)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.15, linewidth = 0.6) +
-  geom_text(aes(y = ic_sup, label = percent(promedio, accuracy = 0.1)), vjust = -0.7, size = 4) +
+tabla_consolidada <- promedios_todas %>%
+  mutate(
+    celda = if_else(
+      variable == "Clima de aula (índice, individual)",
+      sprintf("%.2f (%.2f–%.2f)", promedio, ic_inf, ic_sup),
+      sprintf("%.1f%% (%.1f%%–%.1f%%)", promedio * 100, ic_inf * 100, ic_sup * 100)
+    ),
+    variable = factor(variable, levels = orden_variables)
+  ) %>%
+  select(variable, base, celda) %>%
+  tidyr::pivot_wider(names_from = base, values_from = celda, values_fill = "N/D") %>%
+  arrange(variable) %>%
+  rename(Variable = variable)
+
+tabla_consolidada
+```
+
+```{r exportar-tabla-consolidada}
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_consolidada)
+print(doc, target = "../output/Descriptivos/tabla_consolidada.docx")
+```
+
+## Grafico variables nivel 1 dicotomicas 
+
+```{r combinar-promedios-todas}
+combinar_promedios <- function(...) {
+  args <- list(...)
+  bind_rows(lapply(names(args), function(nombre) {
+    args[[nombre]] %>% mutate(variable = nombre)
+  }))
+}
+
+promedios_todas <- combinar_promedios(
+  "Expectativa de voto"   = promedios_voto,
+  "Sexo (hombres)"        = promedios_sexo,
+  "Libros en el hogar"    = promedios_libro,
+  "Nivel educ. padres"    = promedios_educ,
+  "Particip. votaciones"  = promedios_particip_votaciones,
+  "Particip. asambleas"   = promedios_particip_asambleas,
+  "Aprendizaje voto"      = promedios_aprendizaje_voto
+)
+```
+
+```{r grafico-barras-todas}
+ggplot(promedios_todas, aes(x = base, y = promedio, fill = variable)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = scales::percent(promedio, accuracy = 0.1)),
+            position = position_dodge(width = 0.8),
+            vjust = -0.4, size = 2.8) +
+  scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
   labs(
-    title = "Proporción de expectativa de voto alta por base de datos",
-    subtitle = "Barras de error: IC 95% (diseño complejo, ponderado por Peso_est)",
-    x = "Base de datos (año)",
-    y = "Proporción"
+    title = "Proporciones ponderadas por variable y cohorte",
+    x = "Base de datos (año)", y = "Proporción", fill = "Variable"
   ) +
-  theme_minimal(base_size = 13)
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
 
 
+# Variables contextuales
+
+```{r funciones-motor-escuela}
+calc_media_ic_ponderada_esc <- function(datos, var, peso) {
+  faltantes <- setdiff(c(var, peso), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s): ", paste(faltantes, collapse = ", "))
+  formula_var <- as.formula(paste0("~", var))
+  diseno <- svydesign(ids = ~1, weights = as.formula(paste0("~", peso)), data = datos)
+  res <- svymean(formula_var, diseno, na.rm = TRUE)
+  ci <- confint(res)
+  data.frame(promedio = as.numeric(res), ic_inf = ci[1], ic_sup = ci[2],
+             n = sum(!is.na(datos[[var]])), row.names = NULL)
+}
+
+colapsar_escuela <- function(datos, id_escuela, var, peso_esc) {
+  faltantes <- setdiff(c(id_escuela, var, peso_esc), names(datos))
+  if (length(faltantes) > 0) stop("No encuentro esta(s) columna(s) al colapsar: ", paste(faltantes, collapse = ", "))
+  datos %>% distinct(.data[[id_escuela]], .keep_all = TRUE) %>%
+    select(all_of(c(id_escuela, var, peso_esc)))
+}
+
+calc_promedios_ic_esc <- function(var, peso = "Peso_esc", id_escuela = "id_colegio",
+                                   bases = list(CIVED_1999 = CIVED_1999,
+                                                ICCS_2009  = ICCS_2009,
+                                                ICCS_2016  = ICCS_2016,
+                                                PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite (queda N/D).")
+      return(NULL)
+    }
+    colapsada <- colapsar_escuela(datos, id_escuela, var, peso)
+    calc_media_ic_ponderada_esc(colapsada, var, peso) %>% mutate(base = nombre_base)
+  })
+  bind_rows(resultados) %>%
+    mutate(base = factor(base, levels = names(bases)))
+}
+```
+
+## Pormedios contextuales
+
+```{r promedios-escuela-por-variable}
+promedios_aprendizaje_esc <- calc_promedios_ic_esc("perp_aprendizaje_voto_esc")
+promedios_voto_esc        <- calc_promedios_ic_esc("tasa_voto_escuela")
+promedios_asamblea_esc    <- calc_promedios_ic_esc("tasa_asamblea_escuela")
+promedios_clima_esc       <- calc_promedios_ic_esc("clima_aula_escuela")
+```
+
+## Tabla consolidada contextuales
+
+```{r tabla-consolidada-escuela}
+combinar_promedios_esc <- function(...) {
+  args <- list(...)
+  bind_rows(lapply(names(args), function(nombre) args[[nombre]] %>% mutate(variable = nombre)))
+}
+
+promedios_todas_esc <- combinar_promedios_esc(
+  "Aprendizaje sobre el voto (tasa escuela)"   = promedios_aprendizaje_esc,
+  "Participación en votaciones (tasa escuela)" = promedios_voto_esc,
+  "Participación en asambleas (tasa escuela)"  = promedios_asamblea_esc,
+  "Clima de aula (escuela)"                    = promedios_clima_esc
+)
+
+orden_variables_esc <- c("Aprendizaje sobre el voto (tasa escuela)",
+                          "Participación en votaciones (tasa escuela)",
+                          "Participación en asambleas (tasa escuela)",
+                          "Clima de aula (escuela)")
+
+tabla_consolidada_esc <- promedios_todas_esc %>%
+  mutate(
+    celda = if_else(
+      variable == "Clima de aula (escuela)",
+      sprintf("%.2f (%.2f–%.2f)", promedio, ic_inf, ic_sup),
+      sprintf("%.1f%% (%.1f%%–%.1f%%)", promedio * 100, ic_inf * 100, ic_sup * 100)
+    ),
+    variable = factor(variable, levels = orden_variables_esc)
+  ) %>%
+  select(variable, base, celda) %>%
+  tidyr::pivot_wider(names_from = base, values_from = celda, values_fill = "N/D") %>%
+  arrange(variable) %>%
+  rename(Variable = variable)
+
+tabla_consolidada_esc
+```
+
+```{r exportar-tabla-consolidada-escuela}
+doc <- officer::read_docx()
+doc <- officer::body_add_table(doc, value = tabla_consolidada_esc)
+print(doc, target = "../output/Descriptivos/tabla_consolidada_escuela.docx")
+```
+
+### Grafico contextual 
+
+```{r grafico-barras-escuela}
+promedios_chart_esc <- promedios_todas_esc %>%
+  filter(variable != "Clima de aula (escuela)")
+
+ggplot(promedios_chart_esc, aes(x = base, y = promedio, fill = variable)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = scales::percent(promedio, accuracy = 0.1)),
+            position = position_dodge(width = 0.8), vjust = -0.4, size = 2.8) +
+  scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = "Tasas ponderadas por escuela, por cohorte",
+    x = "Base de datos (año)", y = "Tasa por escuela", fill = "Variable"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+
+### Tabla descriptivos clima del aula
+
+```{r describir-clima}
+describir_variable <- function(var, bases = list(CIVED_1999 = CIVED_1999,
+                                                  ICCS_2009  = ICCS_2009,
+                                                  ICCS_2016  = ICCS_2016,
+                                                  PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite.")
+      return(NULL)
+    }
+    d <- psych::describe(datos[[var]])
+    data.frame(base = nombre_base, n = d$n, min = d$min, max = d$max,
+               asimetria = d$skew, curtosis = d$kurtosis, row.names = NULL)
+  })
+  bind_rows(resultados)
+}
+
+describir_variable_esc <- function(var, id_escuela = "id_colegio", peso_esc = "Peso_esc",
+                                    bases = list(CIVED_1999 = CIVED_1999,
+                                                 ICCS_2009  = ICCS_2009,
+                                                 ICCS_2016  = ICCS_2016,
+                                                 PACES_2019 = PACES_2019)) {
+  resultados <- lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) {
+      message("'", var, "' no está en ", nombre_base, " -- se omite.")
+      return(NULL)
+    }
+    colapsada <- colapsar_escuela(datos, id_escuela, var, peso_esc)
+    d <- psych::describe(colapsada[[var]])
+    data.frame(base = nombre_base, n = d$n, min = d$min, max = d$max,
+               asimetria = d$skew, curtosis = d$kurtosis, row.names = NULL)
+  })
+  bind_rows(resultados)
+}
+
+descriptivos_clima_ind <- describir_variable("indice_aula_ind")
+descriptivos_clima_esc <- describir_variable_esc("clima_aula_escuela")
+
+descriptivos_clima_ind
+descriptivos_clima_esc
+```
+
+```{r guardar-tablas-clima}
+guardar_tabla_word(descriptivos_clima_ind, "descriptivos_clima_individual.docx")
+guardar_tabla_word(descriptivos_clima_esc, "descriptivos_clima_escuela.docx")
+```
+
+```{r boxplot-clima}
+extraer_valores <- function(var, nivel, id_escuela = "id_colegio", peso_esc = "Peso_esc",
+                             bases = list(CIVED_1999 = CIVED_1999,
+                                          ICCS_2009  = ICCS_2009,
+                                          ICCS_2016  = ICCS_2016,
+                                          PACES_2019 = PACES_2019)) {
+  bind_rows(lapply(names(bases), function(nombre_base) {
+    datos <- bases[[nombre_base]]
+    if (!(var %in% names(datos))) return(NULL)
+    if (nivel == "Escuela") datos <- colapsar_escuela(datos, id_escuela, var, peso_esc)
+    data.frame(base = nombre_base, nivel = nivel, valor = datos[[var]])
+  }))
+}
+
+clima_combinado <- bind_rows(
+  extraer_valores("indice_aula_ind", "Individual"),
+  extraer_valores("clima_aula_escuela", "Escuela")
+)
+clima_combinado$base <- factor(clima_combinado$base,
+                                levels = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"))
+
+ggplot(clima_combinado, aes(x = base, y = valor, fill = nivel)) +
+  geom_boxplot(outlier.alpha = 0.3, width = 0.6, position = position_dodge(width = 0.75)) +
+  labs(
+    title = "Distribución del clima de aula por cohorte",
+    subtitle = "Comparación nivel individual vs. nivel escuela",
+    x = "Base de datos (año)", y = "Índice de clima de aula", fill = "Nivel"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
 ```
 
 ### Gráfico promedio de variables contextos

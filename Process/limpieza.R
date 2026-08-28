@@ -180,8 +180,8 @@ proc_ICCS_2009 <- proc_ICCS_2009 %>%  mutate (Sexo = case_match(Sexo,
                                                                1 ~ 0)) # 1 = Mujer
 
 proc_ICCS_2016 <- proc_ICCS_2016 %>% mutate (Sexo = case_match(Sexo, 
-                                                               1 ~ 0, # 1 = Mujer
-                                                               2 ~ 1)) # 2 = Hombre
+                                                               0 ~ 0, # 0 = Mujer
+                                                               1 ~ 1)) # 1 = Hombre
 
 proc_PACES_2019 <- proc_PACES_2019 %>%  mutate (Sexo = case_match(Sexo, 
                                                                    1 ~ 1, # 1 = Hombre
@@ -255,7 +255,7 @@ proc_ICCS_2016 <- proc_ICCS_2016 %>%
 
 # Homologación nivel educacional de la madre--------------
 
-proc_CIVED_1999$Nive_educ <- car::recode(proc_CIVED_1999$Nive_educ, 
+proc_CIVED_1999$nivel_educ <- car::recode(proc_CIVED_1999$nivel_educ, 
                                      "1=0; 2=1; 3=2; 4=2; 5=3; 6=4; 7=4",
                                      as.numeric = TRUE)
 
@@ -666,8 +666,33 @@ proc_PACES_2019<- proc_PACES_2019 %>%
 
 # Renombrar---------------------------------------------------------------------
 
+# K7 aprendizaje del voto
 proc_CIVED_1999 <- proc_CIVED_1999 %>% 
   rename(aprendizaje_voto = K7)
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%  
+  rename (aprendizaje_voto = K7)
+
+# Participación en votaciones escolares
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  rename (participacion_voto = P3)
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%  
+  rename (participacion_voto = P3)
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%  
+  rename (participacion_voto = P3)
+
+# Participación en asambleas 
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  rename (asamblea = P5)
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%  
+  rename (asamblea= P5)
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%  
+  rename (asamblea = P5)
 
 # 2. Guardar las bases en formato .sav
 # Usamos haven::write_sav para mantener la compatibilidad con SPSS
