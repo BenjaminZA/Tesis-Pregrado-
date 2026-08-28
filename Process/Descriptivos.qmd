@@ -315,7 +315,7 @@ tabla_voto_simple <- promedios_voto %>%
 
 doc <- officer::read_docx()
 doc <- officer::body_add_table(doc, value = tabla_voto_simple)
-print(doc, target = "../output/Descirptivos/tabla_promedio_voto.docx")
+print(doc, target = "../output/Descriptivos/tabla_promedio_voto.docx")
 
 
 tabla_voto_simple
@@ -730,6 +730,54 @@ ggplot(clima_combinado, aes(x = base, y = valor, fill = nivel)) +
 
 ### Gráfico promedio de variables contextos
 
+```{r guardar-grafico-png}
+guardar_grafico_png <- function(grafico, nombre_archivo, carpeta = "../output/Descriptivos",
+                                 ancho = 10, alto = 6, dpi = 300) {
+  if (!dir.exists(carpeta)) dir.create(carpeta, recursive = TRUE)
+  ruta <- file.path(carpeta, nombre_archivo)
+  ggsave(ruta, plot = grafico, width = ancho, height = alto, dpi = dpi)
+  message("Gráfico guardado en: ", ruta)
+}
+```
+
+```{r grafico-barras-todas}
+grafico_barras_individual <- ggplot(promedios_todas %>% filter(variable != "Clima de aula (índice, individual)"),
+                                     aes(x = base, y = promedio, fill = variable)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = scales::percent(promedio, accuracy = 0.1)),
+            position = position_dodge(width = 0.8), vjust = -0.4, size = 2.8) +
+  scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = "Proporciones ponderadas por variable y cohorte",
+    x = "Base de datos (año)", y = "Proporción", fill = "Variable"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+grafico_barras_individual
+
+guardar_grafico_png(grafico_barras_individual, "grafico_barras_individual.png")
+```
+
+```{r grafico-barras-escuela}
+grafico_barras_escuela <- ggplot(promedios_todas_esc %>% filter(variable != "Clima de aula (escuela)"),
+                                  aes(x = base, y = promedio, fill = variable)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = scales::percent(promedio, accuracy = 0.1)),
+            position = position_dodge(width = 0.8), vjust = -0.4, size = 2.8) +
+  scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = "Tasas ponderadas por escuela, por cohorte",
+    x = "Base de datos (año)", y = "Tasa por escuela", fill = "Variable"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+grafico_barras_escuela
+
+guardar_grafico_png(grafico_barras_escuela, "grafico_barras_escuela.png")
+```
+
 #### Clima aula
 ##### indiviual Nivel 1
 ```{r}
@@ -816,98 +864,7 @@ ggplot(clima_escuela, aes(x = base, y = promedio)) +
 
 ```
 
-#### Asamblea
 
-```{r}
-
-promedio_clima_aula <- data.frame(
-  base = c("ICCS_2009", "ICCS_2016", "PACES_2019"),
-  promedio = c(
-    mean(CIVED_1999$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2009$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2016$clima_aula_escuela, na.rm = TRUE),
-    mean(PACES_2019$clima_aula_escuela, na.rm = TRUE)
-  )
-)
-
-# Ordenar las bases cronológicamente en el eje X
-promedio_clima_aula$base <- factor(promedio_clima_aula$base,
-                               levels = c("ICCS_2009", "ICCS_2016", "PACES_2019"))
-
-
-ggplot(promedio_clima_aula, aes(x = base, y = promedio)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_text(aes(label = round(promedio, 2)), vjust = -0.5, size = 4) +
-  labs(
-    title = "Promedio de indice clima del aula por base de datos",
-    x = "Base de datos (año)",
-    y = "Promedio del clima del aula"
-  ) +
-  theme_minimal(base_size = 13)
-
-```
-
-#### Voto en la escuela
-
-```{r}
-
-promedio_clima_aula <- data.frame(
-  base = c("ICCS_2009", "ICCS_2016", "PACES_2019"),
-  promedio = c(
-    mean(CIVED_1999$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2009$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2016$clima_aula_escuela, na.rm = TRUE),
-    mean(PACES_2019$clima_aula_escuela, na.rm = TRUE)
-  )
-)
-
-# Ordenar las bases cronológicamente en el eje X
-promedio_clima_aula$base <- factor(promedio_clima_aula$base,
-                               levels = c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019"))
-
-
-ggplot(promedio_clima_aula, aes(x = base, y = promedio)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_text(aes(label = round(promedio, 2)), vjust = -0.5, size = 4) +
-  labs(
-    title = "Promedio de indice clima del aula por base de datos",
-    x = "Base de datos (año)",
-    y = "Promedio del clima del aula"
-  ) +
-  theme_minimal(base_size = 13)
-
-```
-
-#### Aprendizaje sobre el voto en la escuela
-
-```{r}
-
-promedio_clima_aula <- data.frame(
-  base = c("CIVED_1999", "ICCS_2016"),
-  promedio = c(
-    mean(CIVED_1999$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2009$clima_aula_escuela, na.rm = TRUE),
-    mean(ICCS_2016$clima_aula_escuela, na.rm = TRUE),
-    mean(PACES_2019$clima_aula_escuela, na.rm = TRUE)
-  )
-)
-
-# Ordenar las bases cronológicamente en el eje X
-promedio_clima_aula$base <- factor(promedio_clima_aula$base,
-                               levels = c("CIVED_1999", "ICCS_2016"))
-
-
-ggplot(promedio_clima_aula, aes(x = base, y = promedio)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_text(aes(label = round(promedio, 2)), vjust = -0.5, size = 4) +
-  labs(
-    title = "Promedio de indice clima del aula por base de datos",
-    x = "Base de datos (año)",
-    y = "Promedio del clima del aula"
-  ) +
-  theme_minimal(base_size = 13)
-
-```
 
 
 
