@@ -299,8 +299,72 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
   mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
 
-#Indice de participación (expectativa de voto)-----------------------------------
+#Indice de participación (expectativa de voto)----------------------------------
 
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1))
+
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M3 = case_match(M3,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1))
+
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M3 = case_match(M3,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1))
+
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 1,
+                         3 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 1,
+                         3 ~ 1)) %>% 
+  mutate(M3 = case_match(M3,
+                         1 ~ 0,
+                         2 ~ 1,
+                         3 ~ 1))
+
+# Segunda versión---------------------------------------------------------------
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
   mutate(indice_voto = rowMeans(select(., M1, M2), na.rm = TRUE))
 

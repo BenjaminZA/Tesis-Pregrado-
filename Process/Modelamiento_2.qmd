@@ -1,0 +1,111 @@
+---
+title: "Segunda Versión Modelamiento"
+author: "Benjamín Zavala"
+format: html
+editor: visual
+---
+
+### Librería
+
+```{r}
+pacman::p_load(tidyverse, 
+               dplyr, 
+               haven, 
+               car, 
+               magrittr,
+               psych,
+               readxl, 
+               fastDummies,
+               stargazer,
+               modelsummary,
+               summarytools,
+               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest)
+
+```
+
+### Bases de datos
+
+```{r}
+
+CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999.rds")
+
+ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009.rds")
+
+ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016.rds")
+
+PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
+
+```
+
+
+### CIVED_1999
+
+```{r}
+
+M0 <- lmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M1 <- lmer(
+  voto ~ libro + nivel_educ + Sexo + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M2 <- lmer(
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M3_a <- lmer(
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto + 
+   clima_aula_escuela + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M3_b <- lmer(
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto +    perp_aprendizaje_voto_esc + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M4_a <- lmer(
+  voto ~ libro * clima_aula_escuela +
+    nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M4_b <- lmer(
+  voto ~ nivel_educ * clima_aula_escuela +
+    libro + Sexo + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M5_a <- lmer(
+  voto ~ nivel_educ * perp_aprendizaje_voto_esc + 
+    libro + Sexo + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M5_b <- lmer(
+  voto ~ nivel_educ * perp_aprendizaje_voto_esc +
+    libro + Sexo + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+
+
+
+```
+
+
+
+

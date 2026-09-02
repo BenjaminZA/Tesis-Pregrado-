@@ -4,8 +4,8 @@ format: html
 editor: visual
 ---
 
+### Librería
 
-### Librería 
 ```{r}
 pacman::p_load(tidyverse, 
                dplyr, 
@@ -100,6 +100,7 @@ datos <- datos %>%
 ```
 
 ### Dicotomizar
+
 ```{r}
 bases <- list(
   CIVED_1999 = CIVED_1999,
@@ -126,6 +127,7 @@ for (nombre in c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")) {
 ```
 
 # Modelo vacio
+
 ```{r}
 
 modelo_vacio_CIVED_1999 <- lmer(
@@ -163,9 +165,10 @@ tab_model(
 
 ```
 
-## Modelos Clima aula 
+## Modelos Clima aula
 
 ### CIVED_1999 CLIMA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -210,6 +213,7 @@ modelo_clima_CIVED_5 <- lmer(
 ```
 
 ### ICCS_2009 CLIMA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -253,6 +257,7 @@ modelo_clima_ICCS_2009_5 <- lmer(
 ```
 
 ### ICCS_2016 CLIMA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -296,6 +301,7 @@ modelo_clima_ICCS_2016_5 <- lmer(
 ```
 
 ### PACES_2019 CLIMA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -429,8 +435,9 @@ tab_model(
 ```
 
 ## Modelos Votar_esc
-                                                                            
+
 ### ICCS_2009 VOTO_ESC
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -474,6 +481,7 @@ modelo_votar_esc_ICCS_2009_5 <- lmer(
 ```
 
 ### ICCS_2016 VOTO_ESC
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -517,6 +525,7 @@ modelo_votar_esc_ICCS_2016_5 <- lmer(
 ```
 
 ### PACES_2019 VOTO_ESC
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -629,10 +638,10 @@ tab_model(
 )
 ```
 
-
 ## Modelos Asamblea
 
 ### ICCS_2009 ASAMBLEA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -676,6 +685,7 @@ modelo_asamblea_ICCS_2009_5 <- lmer(
 ```
 
 ### ICCS_2016 ASAMBLEA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -719,6 +729,7 @@ modelo_asamblea_ICCS_2016_5 <- lmer(
 ```
 
 ### PACES_2019 ASAMBLEA
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -762,6 +773,7 @@ modelo_asamblea_PACES_2019_5 <- lmer(
 ```
 
 ### Traspaso de modelos a word ASAMBLEA
+
 ```{r}
 etiquetas <- c(
   "Vacio",
@@ -830,10 +842,10 @@ tab_model(
 )
 ```
 
-
 ## Modelos Aprendizaje_voto
 
 ### CIVED_1999 APRENDIZAJE_VOTO
+
 ```{r}
 #EFECTOS FIJOS 1
 modelo_aprendizaje_voto_CIVED_1 <- lmer(
@@ -877,6 +889,7 @@ modelo_aprendizaje_voto_CIVED_5 <- lmer(
 ```
 
 ### ICCS_2016 APRENDIZAJE_VOTO
+
 ```{r}
 
 #EFECTOS FIJOS 1
@@ -920,6 +933,7 @@ modelo_aprendizaje_voto_ICCS_2016_5 <- lmer(
 ```
 
 ### Traspaso de modelos a word APRENDIZAJE VOTO
+
 ```{r}
 etiquetas <- c(
   "Vacio",
@@ -973,6 +987,7 @@ tab_model(
 ### JUNTAR resultados finales
 
 #### CLIMA
+
 ```{r}
 etiquetas <- c(
   "CIVED_1999",
@@ -1036,6 +1051,7 @@ tab_model(
 ```
 
 ### VOTO_ESC
+
 ```{r}
 etiquetas <- c(
   "ICCS_2009",
@@ -1098,6 +1114,7 @@ tab_model(
 ```
 
 ### ASAMBLEA
+
 ```{r}
 # INTERACCIÓN LIBRO
 archivo_docx <- here::here("output", "Modelos", "Asamblea",
@@ -1150,6 +1167,7 @@ tab_model(
 ```
 
 ### APRENDIZAJE_VOTO
+
 ```{r}
 
 etiquetas <- c(
@@ -1202,7 +1220,3 @@ tab_model(
   file        = archivo_docx
 )
 ```
-
-
-
-
