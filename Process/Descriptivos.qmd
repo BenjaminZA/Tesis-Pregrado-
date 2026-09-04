@@ -6,7 +6,6 @@ editor: visual
 
 ## Descriptivos
 
-
 ####Librería
 
 ```{r}
@@ -40,7 +39,7 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
-#### Recodificación Sexo 
+#### Recodificación Sexo
 
 ```{r}
 
@@ -75,7 +74,6 @@ for (i in seq_along(bases)) {
 }
 
 ```
-
 
 #### Función Promedios e intervalos de confianza
 
@@ -252,7 +250,6 @@ guardar_tabla_word <- function(tabla, nombre_archivo, carpeta = "../output/Descr
   message("Tabla guardada en: ", ruta)
 }
 ```
-
 
 ```{r promedios-por-variable}
 promedios_voto  <- calc_promedios_ic("voto")
@@ -496,7 +493,7 @@ doc <- officer::body_add_table(doc, value = tabla_consolidada)
 print(doc, target = "../output/Descriptivos/tabla_consolidada.docx")
 ```
 
-## Grafico variables nivel 1 dicotomicas 
+## Grafico variables nivel 1 dicotomicas
 
 ```{r combinar-promedios-todas}
 combinar_promedios <- function(...) {
@@ -531,7 +528,6 @@ ggplot(promedios_todas, aes(x = base, y = promedio, fill = variable)) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "bottom")
 ```
-
 
 # Variables contextuales
 
@@ -625,7 +621,7 @@ doc <- officer::body_add_table(doc, value = tabla_consolidada_esc)
 print(doc, target = "../output/Descriptivos/tabla_consolidada_escuela.docx")
 ```
 
-### Grafico contextual 
+### Grafico contextual
 
 ```{r grafico-barras-escuela}
 promedios_chart_esc <- promedios_todas_esc %>%
@@ -643,7 +639,6 @@ ggplot(promedios_chart_esc, aes(x = base, y = promedio, fill = variable)) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "bottom")
 ```
-
 
 ### Tabla descriptivos clima del aula
 
@@ -779,7 +774,9 @@ guardar_grafico_png(grafico_barras_escuela, "grafico_barras_escuela.png")
 ```
 
 #### Clima aula
+
 ##### indiviual Nivel 1
+
 ```{r}
 
 library(survey); library(dplyr); library(ggplot2)
@@ -863,12 +860,6 @@ ggplot(clima_escuela, aes(x = base, y = promedio)) +
   theme_minimal(base_size = 13)
 
 ```
-
-
-
-
-
-
 
 
 

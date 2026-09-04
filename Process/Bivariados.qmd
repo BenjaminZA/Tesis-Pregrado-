@@ -1,0 +1,136 @@
+---
+title: "Bivariados"
+author: "Benjamín Zavala"
+format: html
+editor: visual
+---
+
+####Librería
+
+```{r}
+
+pacman::p_load(tidyverse, 
+               dplyr, 
+               haven, 
+               car, 
+               magrittr,
+               psych,
+               readxl, 
+               fastDummies,
+               stargazer,
+               modelsummary,
+               summarytools,
+               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest, ggplot2, survey, scales, polycor, flextable)
+
+```
+
+####Bases de datos
+
+```{r}
+
+CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999.rds")
+
+ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009.rds")
+
+ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016.rds")
+
+PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
+
+```
+
+### Funsión 
+
+```{r funcion-hetcor}
+
+binarias  <- c("voto", "libro", "nivel_educ", "Sexo", "aprendizaje_voto",
+               "participacion_voto", "asamblea")
+continuas <- c("indice_aula_ind", "clima_aula_escuela",
+               "perp_aprendizaje_voto_esc", "tasa_voto_escuela", "tasa_asamblea_escuela")
+todas_variables <- c(binarias, continuas)
+
+calcular_hetcor_cohorte <- function(datos, vars_bin, vars_cont) {
+  vars_bin_disp  <- intersect(vars_bin, names(datos))
+  vars_cont_disp <- intersect(vars_cont, names(datos))
+  vars_disp <- c(vars_bin_disp, vars_cont_disp)
+  if (length(vars_disp) < 2) return(NULL)
+
+  datos_sub <- as.data.frame(datos[, vars_disp, drop = FALSE])  # <- fuerza data.frame base, no tibble
+
+  datos_sub[] <- lapply(datos_sub, function(x) {
+    if (inherits(x, "haven_labelled")) x <- haven::zap_labels(x)
+    as.numeric(x)
+  })
+
+  for (v in vars_bin_disp) datos_sub[[v]] <- factor(datos_sub[[v]])
+
+  res <- hetcor(datos_sub, use = "pairwise.complete.obs", std.err = FALSE)
+  res$correlations
+}
+```
+### Combinar cohortes
+
+```{r combinar-matriz-cohortes}
+combinar_matrices_cohortes <- function(matrices_por_cohorte, variables) {
+  nombres_cohortes <- names(matrices_por_cohorte)
+  n <- length(variables)
+  matriz_final <- matrix("", nrow = n, ncol = n, dimnames = list(variables, variables))
+
+  for (i in seq_len(n)) {
+    for (j in seq_len(n)) {
+      v1 <- variables[i]; v2 <- variables[j]
+      if (i == j) {
+        matriz_final[i, j] <- "1.00"
+        next
+      }
+      lineas <- sapply(nombres_cohortes, function(nb) {
+        mat <- matrices_por_cohorte[[nb]]
+        if (is.null(mat) || !(v1 %in% rownames(mat)) || !(v2 %in% rownames(mat))) {
+          return(sprintf("%s: -", nb))
+        }
+        sprintf("%s: %.2f", nb, mat[v1, v2])
+      })
+      matriz_final[i, j] <- paste(lineas, collapse = "\n")
+    }
+  }
+  as.data.frame(matriz_final, check.names = FALSE)
+}
+```
+
+
+### Calcular y armar matriz
+
+```{r calcular-matriz-correlaciones}
+bases <- list(CIVED_1999 = CIVED_1999, ICCS_2009 = ICCS_2009,
+              ICCS_2016 = ICCS_2016, PACES_2019 = PACES_2019)
+
+matrices_por_cohorte <- lapply(bases, calcular_hetcor_cohorte,
+                                vars_bin = binarias, vars_cont = continuas)
+
+matriz_correlaciones <- combinar_matrices_cohortes(matrices_por_cohorte, todas_variables)
+matriz_correlaciones
+```
+
+
+### Exportar a word 
+
+```{r exportar-matriz-correlaciones}
+matriz_export <- cbind(Variable = rownames(matriz_correlaciones), matriz_correlaciones)
+
+ft_correlaciones <- flextable::flextable(matriz_export) %>%
+  flextable::theme_box() %>%
+  flextable::fontsize(size = 7, part = "all") %>%
+  flextable::align(align = "center", part = "all") %>%
+  flextable::valign(valign = "top", part = "body") %>%
+  flextable::autofit()
+
+doc <- officer::read_docx()
+doc <- flextable::body_add_flextable(doc, ft_correlaciones)
+
+carpeta <- "../output/Descriptivos"
+if (!dir.exists(carpeta)) dir.create(carpeta, recursive = TRUE)
+print(doc, target = file.path(carpeta, "matriz_correlaciones.docx"))
+```
+
+
+
+
