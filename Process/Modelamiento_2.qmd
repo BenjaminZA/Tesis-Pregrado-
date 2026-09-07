@@ -428,4 +428,44 @@ M4_c2 <- lmer(
 
 ```
 
+## Tablas exportables
+
+```{r}
+
+etiquetas <- c(
+  "M0: Vacío",
+  "M1: Nivel 1",
+  "M1_a: Pend. aleat. (libro)",
+  "M1_b: Pend. aleat. (nivel_educ)",
+  "M2: + Controles N1",
+  "M3_a: + Clima de aula (escuela)",
+  "M3_b: + Percepción aprendizaje (escuela)",
+  "M4_a1: Libro × Clima aula",
+  "M4_b1: Nivel educ × Clima aula",
+  "M4_a2: Libro × Percepción aprendizaje",
+  "M4_b2: Nivel educ × Percepción aprendizaje"
+)
+
+archivo_docx <- here::here("output", "Modelos_2", "modelos_CIVED_1999_voto.doc")
+
+tab_model(
+  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M4_a1, M4_b1, M4_a2, M4_b2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  show.p      = FALSE,
+  p.style     = "stars",
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+```
+
+### 
+
+
+
+
+
+
 
