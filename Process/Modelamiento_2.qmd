@@ -116,6 +116,38 @@ M4_b2 <- lmer(
 
 ```
 
+```{r}
+
+etiquetas <- c(
+  "M0: Vacío",
+  "M1: Nivel 1",
+  "M1_a: Pend. aleat. (libro)",
+  "M1_b: Pend. aleat. (nivel_educ)",
+  "M2: + Controles N1",
+  "M3_a: + Clima de aula (escuela)",
+  "M3_b: + Percepción aprendizaje (escuela)",
+  "M4_a1: Libro × Clima aula",
+  "M4_b1: Nivel educ × Clima aula",
+  "M4_a2: Libro × Percepción aprendizaje",
+  "M4_b2: Nivel educ × Percepción aprendizaje"
+)
+
+archivo_docx <- here::here("output", "Modelos_2", "CIVED_1999", "modelos_CIVED_1999_voto.doc")
+
+tab_model(
+  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M4_a1, M4_b1, M4_a2, M4_b2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  show.p      = FALSE,
+  p.style     = "stars",
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+```
+
 ### ICCS 2009
 
 ```{r}
@@ -151,7 +183,7 @@ M2 <- lmer(
 )
 
 M3_a <- lmer(
-  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela + (1 | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
@@ -184,7 +216,7 @@ M4_b1 <- lmer(
 
 M4_a2 <- lmer(
   voto ~ libro * tasa_voto_escuela + 
-    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
@@ -211,6 +243,40 @@ M4_c2 <- lmer(
   REML = TRUE
 )
 
+```
+
+```{r}
+etiquetas <- c(
+  "M0: Vacío",
+  "M1: Nivel 1",
+  "M1_a: Pend. aleat. (libro)",
+  "M1_b: Pend. aleat. (nivel_educ)",
+  "M2: + Controles N1 (CWC)",
+  "M3_a: + Clima de aula (escuela)",
+  "M3_b: + Tasa de votación (escuela)",
+  "M3_c: + Tasa de asamblea (escuela)",
+  "M4_a1: Libro × Clima aula",
+  "M4_b1: Nivel educ × Clima aula",
+  "M4_a2: Libro × Tasa votación",
+  "M4_b2: Nivel educ × Tasa votación",
+  "M4_c1: Libro × Tasa asamblea",
+  "M4_c2: Nivel educ × Tasa asamblea"
+)
+
+archivo_docx <- here::here("output", "Modelos_2", "modelos_ICCS_2009_voto.doc")
+
+tab_model(
+  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c,
+  M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  show.p      = FALSE,
+  p.style     = "stars",
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
 ```
 
 ### ICCS 2016
@@ -287,7 +353,7 @@ M4_b1 <- lmer(
 
 M4_a2 <- lmer(
   voto ~ libro * tasa_voto_escuela + 
-    libro + Sexo + indice_aula_ind + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
@@ -332,6 +398,44 @@ M4_d2 <- lmer(
 
 ```
 
+```{r}
+etiquetas <- c(
+  "M0: Vacío",
+  "M1: Nivel 1",
+  "M1_a: Pend. aleat. (libro)",
+  "M1_b: Pend. aleat. (nivel_educ)",
+  "M2: + Controles N1 (CWC)",
+  "M3_a: + Clima de aula (escuela)",
+  "M3_b: + Tasa de votación (escuela)",
+  "M3_c: + Tasa de asamblea (escuela)",
+  "M3_d: + Percepción aprendizaje (escuela)",
+  "M4_a1: Libro × Clima aula",
+  "M4_b1: Nivel educ × Clima aula",
+  "M4_a2: Libro × Tasa votación",
+  "M4_b2: Nivel educ × Tasa votación",
+  "M4_c1: Libro × Tasa asamblea",
+  "M4_c2: Nivel educ × Tasa asamblea",
+  "M4_d1: Libro × Percepción aprendizaje",
+  "M4_d2: Nivel educ × Percepción aprendizaje"
+)
+
+archivo_docx <- here::here("output", "Modelos_2", "modelos_ICCS_2016_voto.doc")
+
+tab_model(
+  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c, M3_d,
+  M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2, M4_d1, M4_d2,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  show.p      = FALSE,
+  p.style     = "stars",
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+```
+
+
 #### PACES 2019
 
 ```{r}
@@ -366,7 +470,7 @@ M2 <- lmer(
 )
 
 M3_a <- lmer(
-  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela + (1 | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
@@ -399,14 +503,14 @@ M4_b1 <- lmer(
 
 M4_a2 <- lmer(
   voto ~ libro * tasa_voto_escuela + 
-    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M4_b2 <- lmer(
   voto ~ nivel_educ * tasa_voto_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ| id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
@@ -428,28 +532,30 @@ M4_c2 <- lmer(
 
 ```
 
-## Tablas exportables
 
 ```{r}
-
 etiquetas <- c(
   "M0: Vacío",
   "M1: Nivel 1",
   "M1_a: Pend. aleat. (libro)",
   "M1_b: Pend. aleat. (nivel_educ)",
-  "M2: + Controles N1",
+  "M2: + Controles N1 (CWC)",
   "M3_a: + Clima de aula (escuela)",
-  "M3_b: + Percepción aprendizaje (escuela)",
+  "M3_b: + Tasa de votación (escuela)",
+  "M3_c: + Tasa de asamblea (escuela)",
   "M4_a1: Libro × Clima aula",
   "M4_b1: Nivel educ × Clima aula",
-  "M4_a2: Libro × Percepción aprendizaje",
-  "M4_b2: Nivel educ × Percepción aprendizaje"
+  "M4_a2: Libro × Tasa votación",
+  "M4_b2: Nivel educ × Tasa votación",
+  "M4_c1: Libro × Tasa asamblea",
+  "M4_c2: Nivel educ × Tasa asamblea"
 )
 
-archivo_docx <- here::here("output", "Modelos_2", "CIVED_1999", "modelos_CIVED_1999_voto.doc")
+archivo_docx <- here::here("output", "Modelos_2", "modelos_PACES_2019_voto.doc")
 
 tab_model(
-  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M4_a1, M4_b1, M4_a2, M4_b2,
+  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c,
+  M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
@@ -459,11 +565,7 @@ tab_model(
   dv.labels   = etiquetas,
   file        = archivo_docx
 )
-
 ```
-
-### 
-
 
 
 
