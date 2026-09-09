@@ -448,7 +448,7 @@ etiquetas <- c(
 
 archivo_docx <- here::here("output", "Modelos_2", "CIVED_1999", "modelos_CIVED_1999_voto.doc")
 
-tabla_1 <-tab_model(
+tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M4_a1, M4_b1, M4_a2, M4_b2,
   show.re.var = TRUE,
   show.icc    = TRUE,
