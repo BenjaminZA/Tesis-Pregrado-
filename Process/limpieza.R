@@ -758,6 +758,26 @@ proc_ICCS_2009 <- proc_ICCS_2009 %>%
 proc_ICCS_2016 <- proc_ICCS_2016 %>%  
   rename (asamblea = P5)
 
+
+# Centra variables individuales en el promedio de su propia escuela (CWC)-------
+
+centrar_en_escuela <- function(datos, variables, id_escuela = "id_colegio") {
+  for (var in variables) {
+    if (!var %in% names(datos)) next
+    
+    media_esc <- ave(datos[[var]], datos[[id_escuela]], FUN = function(x) mean(x, na.rm = TRUE))
+    datos[[paste0(var, "_cwc")]] <- datos[[var]] - media_esc
+  }
+  datos
+}
+
+variables_centrar <- c("indice_aula_ind", "aprendizaje_voto", "participacion_voto", "asamblea")
+
+proc_CIVED_1999 <- centrar_en_escuela(proc_CIVED_1999, variables_centrar)
+proc_ICCS_2009  <- centrar_en_escuela(proc_ICCS_2009,  variables_centrar)
+proc_ICCS_2016  <- centrar_en_escuela(proc_ICCS_2016,  variables_centrar)
+proc_PACES_2019 <- centrar_en_escuela(proc_PACES_2019, variables_centrar)
+
 # 2. Guardar las bases en formato .sav
 # Usamos haven::write_sav para mantener la compatibilidad con SPSS
 

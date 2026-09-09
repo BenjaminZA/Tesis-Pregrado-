@@ -67,20 +67,20 @@ M1_b <- lmer(
 )
 
 M2 <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
 
 M3_a <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto + 
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + 
    clima_aula_escuela + (1 | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
 
 M3_b <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto +    perp_aprendizaje_voto_esc + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc +    perp_aprendizaje_voto_esc + (1 | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
@@ -88,28 +88,28 @@ M3_b <- lmer(
 
 M4_a1 <- lmer(
   voto ~ libro * clima_aula_escuela +
-    nivel_educ + Sexo + indice_aula_ind + aprendizaje_voto + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
 
 M4_b1 <- lmer(
   voto ~ nivel_educ * clima_aula_escuela +
-    libro + Sexo + indice_aula_ind + aprendizaje_voto + (1 + nivel_educ | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
 
 M4_a2 <- lmer(
   voto ~ libro * perp_aprendizaje_voto_esc + 
-    libro + Sexo + indice_aula_ind + aprendizaje_voto + (1 + libro | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
 
 M4_b2 <- lmer(
   voto ~ nivel_educ * perp_aprendizaje_voto_esc +
-    libro + Sexo + indice_aula_ind + aprendizaje_voto + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + nivel_educ| id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
@@ -145,60 +145,60 @@ M1_b <- lmer(
 )
 
 M2 <- lmer(
-  voto ~ libro + nivel_educ + Sexo + participacion_voto + asamblea + indice_aula_ind + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + (1 | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M3_a <- lmer(
-  voto ~ libro + nivel_educ + Sexo +  participacion_voto + asamblea + indice_aula_ind + clima_aula_escuela (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela (1 | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M3_b <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + tasa_voto_escuela + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + tasa_voto_escuela + (1 | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M3_c <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + tasa_asamblea_escuela + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + tasa_asamblea_escuela + (1 | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M4_a1 <- lmer(
   voto ~ libro * clima_aula_escuela +
-    nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M4_b1 <- lmer(
   voto ~ nivel_educ * clima_aula_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + nivel_educ | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M4_a2 <- lmer(
   voto ~ libro * tasa_voto_escuela + 
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + libro | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M4_b2 <- lmer(
   voto ~ nivel_educ * tasa_voto_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ| id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
 
 M4_c1 <- lmer(
   voto ~ libro * tasa_asamblea_escuela +
-    nivel_educ  + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + libro| id_colegio),
+    nivel_educ  + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro| id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
@@ -206,7 +206,7 @@ M4_c1 <- lmer(
 
 M4_c2 <- lmer(
   voto ~ nivel_educ * tasa_asamblea_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ| id_colegio),
   data = ICCS_2009,
   REML = TRUE
 )
@@ -242,66 +242,66 @@ M1_b <- lmer(
 )
 
 M2 <- lmer(
-  voto ~ libro + nivel_educ + Sexo + participacion_voto + asamblea + indice_aula_ind + aprendizaje_voto + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M3_a <- lmer(
-  voto ~ libro + nivel_educ + Sexo +  participacion_voto + asamblea + indice_aula_ind + clima_aula_escuela + aprendizaje_voto + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela + aprendizaje_voto_cwc + (1 | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M3_b <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + tasa_voto_escuela + aprendizaje_voto + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + tasa_voto_escuela + aprendizaje_voto_cwc + (1 | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M3_c <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + tasa_asamblea_escuela + aprendizaje_voto + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + tasa_asamblea_escuela + aprendizaje_voto_cwc + (1 | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M3_d <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea +	perp_aprendizaje_voto_esc + aprendizaje_voto + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +	perp_aprendizaje_voto_esc + aprendizaje_voto_cwc + (1 | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M4_a1 <- lmer(
   voto ~ libro * clima_aula_escuela +
-    nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M4_b1 <- lmer(
   voto ~ nivel_educ * clima_aula_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + nivel_educ | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M4_a2 <- lmer(
   voto ~ libro * tasa_voto_escuela + 
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + libro | id_colegio),
+    libro + Sexo + indice_aula_ind + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M4_b2 <- lmer(
   voto ~ nivel_educ * tasa_voto_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ| id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
 
 M4_c1 <- lmer(
   voto ~ libro * tasa_asamblea_escuela +
-    nivel_educ  + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + libro| id_colegio),
+    nivel_educ  + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro| id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
@@ -309,7 +309,7 @@ M4_c1 <- lmer(
 
 M4_c2 <- lmer(
   voto ~ nivel_educ * tasa_asamblea_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ| id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
@@ -317,7 +317,7 @@ M4_c2 <- lmer(
 
 M4_d1 <- lmer(
   voto ~ libro * perp_aprendizaje_voto_esc +
-    nivel_educ  + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + libro| id_colegio),
+    nivel_educ  + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro| id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
@@ -325,7 +325,7 @@ M4_d1 <- lmer(
 
 M4_d2 <- lmer(
   voto ~ nivel_educ * perp_aprendizaje_voto_esc +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + aprendizaje_voto + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ| id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
@@ -360,46 +360,46 @@ M1_b <- lmer(
 )
 
 M2 <- lmer(
-  voto ~ libro + nivel_educ + Sexo + participacion_voto + asamblea + indice_aula_ind + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + (1 | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M3_a <- lmer(
-  voto ~ libro + nivel_educ + Sexo +  participacion_voto + asamblea + indice_aula_ind + clima_aula_escuela (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo +  participacion_voto_cwc + asamblea_cwc + indice_aula_ind_cwc + clima_aula_escuela (1 | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M3_b <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + tasa_voto_escuela + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + tasa_voto_escuela + (1 | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M3_c <- lmer(
-  voto ~ libro + nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + tasa_asamblea_escuela + (1 | id_colegio),
+  voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + tasa_asamblea_escuela + (1 | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M4_a1 <- lmer(
   voto ~ libro * clima_aula_escuela +
-    nivel_educ + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M4_b1 <- lmer(
   voto ~ nivel_educ * clima_aula_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + nivel_educ | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
 
 M4_a2 <- lmer(
   voto ~ libro * tasa_voto_escuela + 
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + libro | id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
@@ -413,7 +413,7 @@ M4_b2 <- lmer(
 
 M4_c1 <- lmer(
   voto ~ libro * tasa_asamblea_escuela +
-    nivel_educ  + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + libro| id_colegio),
+    nivel_educ  + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro| id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
@@ -421,7 +421,7 @@ M4_c1 <- lmer(
 
 M4_c2 <- lmer(
   voto ~ nivel_educ * tasa_asamblea_escuela +
-    libro + Sexo + indice_aula_ind + participacion_voto + asamblea + (1 + nivel_educ| id_colegio),
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ| id_colegio),
   data = PACES_2019,
   REML = TRUE
 )
@@ -446,9 +446,9 @@ etiquetas <- c(
   "M4_b2: Nivel educ × Percepción aprendizaje"
 )
 
-archivo_docx <- here::here("output", "Modelos_2", "modelos_CIVED_1999_voto.doc")
+archivo_docx <- here::here("output", "Modelos_2", "CIVED_1999", "modelos_CIVED_1999_voto.doc")
 
-tab_model(
+tabla_1 <-tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M4_a1, M4_b1, M4_a2, M4_b2,
   show.re.var = TRUE,
   show.icc    = TRUE,
@@ -459,6 +459,7 @@ tab_model(
   dv.labels   = etiquetas,
   file        = archivo_docx
 )
+
 ```
 
 ### 
