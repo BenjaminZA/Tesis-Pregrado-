@@ -365,17 +365,35 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
                          3 ~ 1))
 
 # Segunda versión---------------------------------------------------------------
+library(dplyr)
+
+# 1. CIVED 1999 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
-  mutate(indice_voto = rowMeans(select(., M1, M2), na.rm = TRUE))
+  mutate(
+    indice_voto = rowMeans(select(., M1, M2), na.rm = TRUE),
+    indice_voto_std = (indice_voto - 1) / (4 - 1)
+  )
 
+# 2. ICCS 2009 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
-  mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+  mutate(
+    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE),
+    indice_voto_std = (indice_voto - 1) / (4 - 1)
+  )
 
+# 3. ICCS 2016 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+  mutate(
+    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE),
+    indice_voto_std = (indice_voto - 1) / (4 - 1)
+  )
 
+# 4. PACES 2019 (escala 1 a 3) -> rango = 3 - 1 = 2
 proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE))
+  mutate(
+    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE),
+    indice_voto_std = (indice_voto - 1) / (3 - 1)
+  )
 
 #Homologación participación dentro de la escuela--------------------------------
 

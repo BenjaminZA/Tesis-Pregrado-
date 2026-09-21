@@ -110,7 +110,6 @@ matriz_correlaciones <- combinar_matrices_cohortes(matrices_por_cohorte, todas_v
 matriz_correlaciones
 ```
 
-
 ### Exportar a word 
 
 ```{r exportar-matriz-correlaciones}
