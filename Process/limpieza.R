@@ -222,6 +222,10 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
                   Nive_educ_madre, Nive_educ_padre), 
                 ~replace(., . %in% c(5, 8, 9), NA)))
 
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(M1, M2, M3), 
+                ~replace(., . %in% c(4), NA)))
+
 # CIVED y ICCS (Categorias de respuesta)
  #1= Yo desde luego no haría esto.
  #2= Yo probablemente no haría esto.
@@ -304,8 +308,9 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
 # 1. CIVED 1999 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
   mutate(
-    indice_voto = rowSums(select(., M1, M2), na.rm = TRUE),
-    indice_voto_std = (indice_voto - 1) / (4 - 1)
+    indice_voto_prom = rowMeans(select(., M1, M2), na.rm = FALSE),
+    indice_voto_std  = (indice_voto_prom - 1) / (4 - 1),
+    indice_voto_std = 1 - indice_voto_std
   )
 
 # 2. ICCS 2009 (escala 1 a 4) -> rango = 4 - 1 = 3

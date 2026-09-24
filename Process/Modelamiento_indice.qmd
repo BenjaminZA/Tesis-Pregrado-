@@ -37,7 +37,6 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
-
 ### CIVED_1999
 
 ```{r}
@@ -435,7 +434,6 @@ tab_model(
 )
 ```
 
-
 #### PACES 2019
 
 ```{r}
@@ -532,7 +530,6 @@ M4_c2 <- lmer(
 
 ```
 
-
 ```{r}
 etiquetas <- c(
   "M0: Vacío",
@@ -566,5 +563,3 @@ tab_model(
   file        = archivo_docx
 )
 ```
-
-
