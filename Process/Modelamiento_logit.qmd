@@ -333,7 +333,7 @@ exportar_tabla_efectos(tabla_intensidad_interaccion_CIVED,
                         file.path(ruta_intensidad, "intensidad_CIVED_1999_interaccion.docx"))
 ```
 
-### Test ANOVA
+#### Test ANOVA
 
 ```{r}
 anova_CIVED_1999 <- dplyr::bind_rows(
@@ -566,9 +566,9 @@ exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2009,
 #### Test ANOVA
 
 ```{r}
-anova_CIVED_1999 <- dplyr::bind_rows(
-  comparar_pendiente_aleatoria(M1, M1_a, "CIVED_1999", "libro"),
-  comparar_pendiente_aleatoria(M1, M1_b, "CIVED_1999", "nivel_educ")
+anova_ICCS_2009 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "ICCS_2009", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "ICCS_2009", "nivel_educ")
 )
 ```
 
@@ -1069,6 +1069,14 @@ exportar_tabla_efectos(tabla_intensidad_interaccion_PACES_2019,
 ```
 
 #### Test ANOVA
+
+```{r}
+anova_PACES_2019 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "PACES_2019", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "PACES_2019", "nivel_educ")
+)
+```
+
 
 ```{r}
 tabla_anova_pendientes_logit <- dplyr::bind_rows(
