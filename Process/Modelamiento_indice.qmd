@@ -37,9 +37,32 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
+
+#### Función ANOVA
+
+```{r}
+comparar_pendiente_aleatoria <- function(modelo_fijo, modelo_aleatorio, nombre_cohorte, nombre_variable) {
+  comp <- anova(modelo_fijo, modelo_aleatorio)
+  data.frame(
+    Cohorte      = nombre_cohorte,
+    Pendiente    = nombre_variable,
+    AIC_fijo     = round(comp$AIC[1], 1),
+    AIC_aleat    = round(comp$AIC[2], 1),
+    BIC_fijo     = round(comp$BIC[1], 1),
+    BIC_aleat    = round(comp$BIC[2], 1),
+    logLik_fijo  = round(comp$logLik[1], 1),
+    logLik_aleat = round(comp$logLik[2], 1),
+    Chisq        = round(comp$Chisq[2], 2),
+    Df           = comp$Df[2],
+    p_valor      = signif(comp[["Pr(>Chisq)"]][2], 3)
+  )
+}
+```
+
 ### CIVED_1999
 
 ```{r}
+
 
 M0 <- lmer(
   indice_voto_std ~ 1 + (1 | id_colegio),
@@ -84,6 +107,7 @@ M3_b <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con contextuales de escuela ---
 
 M4_a1 <- lmer(
   indice_voto_std ~ libro * clima_aula_escuela +
@@ -101,7 +125,7 @@ M4_b1 <- lmer(
 
 M4_a2 <- lmer(
   indice_voto_std ~ libro * perp_aprendizaje_voto_esc + 
-    libro + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
+    nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
   REML = TRUE
 )
@@ -113,9 +137,42 @@ M4_b2 <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con variables centradas (individuales, cwc) ---
+
+M4_c1 <- lmer(
+  indice_voto_std ~ libro * indice_aula_ind_cwc +
+    nivel_educ + Sexo + aprendizaje_voto_cwc + (1 + libro | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M4_c2 <- lmer(
+  indice_voto_std ~ nivel_educ * indice_aula_ind_cwc +
+    libro + Sexo + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M4_d1 <- lmer(
+  indice_voto_std ~ libro * aprendizaje_voto_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + (1 + libro | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
+M4_d2 <- lmer(
+  indice_voto_std ~ nivel_educ * aprendizaje_voto_cwc +
+    libro + Sexo + indice_aula_ind_cwc + (1 + nivel_educ | id_colegio),
+  data = CIVED_1999,
+  REML = TRUE
+)
+
 ```
 
+#### Tabla modelos
+
 ```{r}
+
 
 etiquetas <- c(
   "M0: Vacío",
@@ -128,13 +185,18 @@ etiquetas <- c(
   "M4_a1: Libro × Clima aula",
   "M4_b1: Nivel educ × Clima aula",
   "M4_a2: Libro × Percepción aprendizaje",
-  "M4_b2: Nivel educ × Percepción aprendizaje"
+  "M4_b2: Nivel educ × Percepción aprendizaje",
+  "M4_c1: Libro × Clima aula (ind)",
+  "M4_c2: Nivel educ × Clima aula (ind)",
+  "M4_d1: Libro × Aprendizaje voto (ind)",
+  "M4_d2: Nivel educ × Aprendizaje voto (ind)"
 )
 
 archivo_docx <- here::here("output", "Modelos_indice", "modelos_CIVED_1999_indice_voto.doc")
 
 tab_model(
-  M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M4_a1, M4_b1, M4_a2, M4_b2,
+  M0, M1, M1_a, M1_b, M2, M3_a, M3_b,
+  M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2, M4_d1, M4_d2,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
@@ -147,9 +209,20 @@ tab_model(
 
 ```
 
+#### Test ANOVA
+
+```{r}
+anova_CIVED_1999 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "CIVED_1999", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "CIVED_1999", "nivel_educ")
+)
+```
+
+
 ### ICCS 2009
 
 ```{r}
+
 
 M0 <- lmer(
   indice_voto_std ~ 1 +(1 | id_colegio),
@@ -199,6 +272,8 @@ M3_c <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con contextuales de escuela ---
+
 M4_a1 <- lmer(
   indice_voto_std ~ libro * clima_aula_escuela +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
@@ -234,7 +309,6 @@ M4_c1 <- lmer(
   REML = TRUE
 )
 
-
 M4_c2 <- lmer(
   indice_voto_std ~ nivel_educ * tasa_asamblea_escuela +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ| id_colegio),
@@ -242,7 +316,53 @@ M4_c2 <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con variables centradas (individuales, cwc) ---
+
+M4_d1 <- lmer(
+  indice_voto_std ~ libro * indice_aula_ind_cwc +
+    nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
+  data = ICCS_2009,
+  REML = TRUE
+)
+
+M4_d2 <- lmer(
+  indice_voto_std ~ nivel_educ * indice_aula_ind_cwc +
+    libro + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2009,
+  REML = TRUE
+)
+
+M4_e1 <- lmer(
+  indice_voto_std ~ libro * participacion_voto_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + libro | id_colegio),
+  data = ICCS_2009,
+  REML = TRUE
+)
+
+M4_e2 <- lmer(
+  indice_voto_std ~ nivel_educ * participacion_voto_cwc +
+    libro + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2009,
+  REML = TRUE
+)
+
+M4_f1 <- lmer(
+  indice_voto_std ~ libro * asamblea_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + libro | id_colegio),
+  data = ICCS_2009,
+  REML = TRUE
+)
+
+M4_f2 <- lmer(
+  indice_voto_std ~ nivel_educ * asamblea_cwc +
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2009,
+  REML = TRUE
+)
+
 ```
+
+#### Tabla Modelos 
 
 ```{r}
 etiquetas <- c(
@@ -259,7 +379,13 @@ etiquetas <- c(
   "M4_a2: Libro × Tasa votación",
   "M4_b2: Nivel educ × Tasa votación",
   "M4_c1: Libro × Tasa asamblea",
-  "M4_c2: Nivel educ × Tasa asamblea"
+  "M4_c2: Nivel educ × Tasa asamblea",
+  "M4_d1: Libro × Clima aula (ind)",
+  "M4_d2: Nivel educ × Clima aula (ind)",
+  "M4_e1: Libro × Participación voto (ind)",
+  "M4_e2: Nivel educ × Participación voto (ind)",
+  "M4_f1: Libro × Asamblea (ind)",
+  "M4_f2: Nivel educ × Asamblea (ind)"
 )
 
 archivo_docx <- here::here("output", "Modelos_indice", "modelos_ICCS_2009_indice_voto.doc")
@@ -267,6 +393,7 @@ archivo_docx <- here::here("output", "Modelos_indice", "modelos_ICCS_2009_indice
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c,
   M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2,
+  M4_d1, M4_d2, M4_e1, M4_e2, M4_f1, M4_f2,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
@@ -278,9 +405,20 @@ tab_model(
 )
 ```
 
+#### Test ANOVA
+
+```{r}
+anova_ICCS_2009 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "ICCS_2009", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "ICCS_2009", "nivel_educ")
+)
+```
+
+
 ### ICCS 2016
 
 ```{r}
+
 
 M0 <- lmer(
   indice_voto_std ~ 1 +(1 | id_colegio),
@@ -336,6 +474,8 @@ M3_d <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con contextuales de escuela ---
+
 M4_a1 <- lmer(
   indice_voto_std ~ libro * clima_aula_escuela +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
@@ -371,14 +511,12 @@ M4_c1 <- lmer(
   REML = TRUE
 )
 
-
 M4_c2 <- lmer(
   indice_voto_std ~ nivel_educ * tasa_asamblea_escuela +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ| id_colegio),
   data = ICCS_2016,
   REML = TRUE
 )
-
 
 M4_d1 <- lmer(
   indice_voto_std ~ libro * perp_aprendizaje_voto_esc +
@@ -387,7 +525,6 @@ M4_d1 <- lmer(
   REML = TRUE
 )
 
-
 M4_d2 <- lmer(
   indice_voto_std ~ nivel_educ * perp_aprendizaje_voto_esc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ| id_colegio),
@@ -395,7 +532,67 @@ M4_d2 <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con variables centradas (individuales, cwc) ---
+
+M4_e1 <- lmer(
+  indice_voto_std ~ libro * indice_aula_ind_cwc +
+    nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_e2 <- lmer(
+  indice_voto_std ~ nivel_educ * indice_aula_ind_cwc +
+    libro + Sexo + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_f1 <- lmer(
+  indice_voto_std ~ libro * participacion_voto_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_f2 <- lmer(
+  indice_voto_std ~ nivel_educ * participacion_voto_cwc +
+    libro + Sexo + indice_aula_ind_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_g1 <- lmer(
+  indice_voto_std ~ libro * asamblea_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_g2 <- lmer(
+  indice_voto_std ~ nivel_educ * asamblea_cwc +
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_h1 <- lmer(
+  indice_voto_std ~ libro * aprendizaje_voto_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
+M4_h2 <- lmer(
+  indice_voto_std ~ nivel_educ * aprendizaje_voto_cwc +
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
+  data = ICCS_2016,
+  REML = TRUE
+)
+
 ```
+
+#### Tabla Modelos
 
 ```{r}
 etiquetas <- c(
@@ -415,7 +612,15 @@ etiquetas <- c(
   "M4_c1: Libro × Tasa asamblea",
   "M4_c2: Nivel educ × Tasa asamblea",
   "M4_d1: Libro × Percepción aprendizaje",
-  "M4_d2: Nivel educ × Percepción aprendizaje"
+  "M4_d2: Nivel educ × Percepción aprendizaje",
+  "M4_e1: Libro × Clima aula (ind)",
+  "M4_e2: Nivel educ × Clima aula (ind)",
+  "M4_f1: Libro × Participación voto (ind)",
+  "M4_f2: Nivel educ × Participación voto (ind)",
+  "M4_g1: Libro × Asamblea (ind)",
+  "M4_g2: Nivel educ × Asamblea (ind)",
+  "M4_h1: Libro × Aprendizaje voto (ind)",
+  "M4_h2: Nivel educ × Aprendizaje voto (ind)"
 )
 
 archivo_docx <- here::here("output", "Modelos_indice", "modelos_ICCS_2016_indice_voto.doc")
@@ -423,6 +628,7 @@ archivo_docx <- here::here("output", "Modelos_indice", "modelos_ICCS_2016_indice
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c, M3_d,
   M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2, M4_d1, M4_d2,
+  M4_e1, M4_e2, M4_f1, M4_f2, M4_g1, M4_g2, M4_h1, M4_h2,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
@@ -434,7 +640,17 @@ tab_model(
 )
 ```
 
-#### PACES 2019
+#### Test ANOVA
+
+```{r}
+anova_ICCS_2016 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "ICCS_2016", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "ICCS_2016", "nivel_educ")
+)
+
+```
+
+### PACES 2019
 
 ```{r}
 M0 <- lmer(
@@ -485,6 +701,8 @@ M3_c <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con contextuales de escuela ---
+
 M4_a1 <- lmer(
   indice_voto_std ~ libro * clima_aula_escuela +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
@@ -520,7 +738,6 @@ M4_c1 <- lmer(
   REML = TRUE
 )
 
-
 M4_c2 <- lmer(
   indice_voto_std ~ nivel_educ * tasa_asamblea_escuela +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ| id_colegio),
@@ -528,7 +745,54 @@ M4_c2 <- lmer(
   REML = TRUE
 )
 
+# --- Interacciones con variables centradas (individuales, cwc) ---
+
+M4_d1 <- lmer(
+  indice_voto_std ~ libro * indice_aula_ind_cwc +
+    nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
+  data = PACES_2019,
+  REML = TRUE
+)
+
+M4_d2 <- lmer(
+  indice_voto_std ~ nivel_educ * indice_aula_ind_cwc +
+    libro + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
+  data = PACES_2019,
+  REML = TRUE
+)
+
+M4_e1 <- lmer(
+  indice_voto_std ~ libro * participacion_voto_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + libro | id_colegio),
+  data = PACES_2019,
+  REML = TRUE
+)
+
+M4_e2 <- lmer(
+  indice_voto_std ~ nivel_educ * participacion_voto_cwc +
+    libro + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
+  data = PACES_2019,
+  REML = TRUE
+)
+
+M4_f1 <- lmer(
+  indice_voto_std ~ libro * asamblea_cwc +
+    nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + libro | id_colegio),
+  data = PACES_2019,
+  REML = TRUE
+)
+
+M4_f2 <- lmer(
+  indice_voto_std ~ nivel_educ * asamblea_cwc +
+    libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + nivel_educ | id_colegio),
+  data = PACES_2019,
+  REML = TRUE
+)
+
 ```
+
+
+#### Tabla Modelos
 
 ```{r}
 etiquetas <- c(
@@ -545,7 +809,13 @@ etiquetas <- c(
   "M4_a2: Libro × Tasa votación",
   "M4_b2: Nivel educ × Tasa votación",
   "M4_c1: Libro × Tasa asamblea",
-  "M4_c2: Nivel educ × Tasa asamblea"
+  "M4_c2: Nivel educ × Tasa asamblea",
+  "M4_d1: Libro × Clima aula (ind)",
+  "M4_d2: Nivel educ × Clima aula (ind)",
+  "M4_e1: Libro × Participación voto (ind)",
+  "M4_e2: Nivel educ × Participación voto (ind)",
+  "M4_f1: Libro × Asamblea (ind)",
+  "M4_f2: Nivel educ × Asamblea (ind)"
 )
 
 archivo_docx <- here::here("output", "Modelos_indice", "modelos_PACES_2019_indice_voto.doc")
@@ -553,6 +823,7 @@ archivo_docx <- here::here("output", "Modelos_indice", "modelos_PACES_2019_indic
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c,
   M4_a1, M4_b1, M4_a2, M4_b2, M4_c1, M4_c2,
+  M4_d1, M4_d2, M4_e1, M4_e2, M4_f1, M4_f2,
   show.re.var = TRUE,
   show.icc    = TRUE,
   show.r2     = TRUE,
@@ -563,3 +834,27 @@ tab_model(
   file        = archivo_docx
 )
 ```
+
+#### Test ANOVA
+
+```{r}
+anova_PACES_2019 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "PACES_2019", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "PACES_2019", "nivel_educ")
+)
+```
+
+
+#### ANOVA final
+
+```{r}
+tabla_anova_pendientes <- dplyr::bind_rows(
+  anova_CIVED_1999, anova_ICCS_2009, anova_ICCS_2016, anova_PACES_2019
+)
+
+exportar_tabla_efectos(
+  tabla_anova_pendientes,
+  here::here("output", "Modelos_indice", "anova_pendientes_aleatorias.docx")
+)
+```
+ 

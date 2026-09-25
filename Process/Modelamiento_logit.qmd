@@ -37,6 +37,123 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
+### Función ANOVA
+
+```{r}
+comparar_pendiente_aleatoria <- function(modelo_fijo, modelo_aleatorio, nombre_cohorte, nombre_variable) {
+  comp <- anova(modelo_fijo, modelo_aleatorio)
+  data.frame(
+    Cohorte      = nombre_cohorte,
+    Pendiente    = nombre_variable,
+    AIC_fijo     = round(comp$AIC[1], 1),
+    AIC_aleat    = round(comp$AIC[2], 1),
+    BIC_fijo     = round(comp$BIC[1], 1),
+    BIC_aleat    = round(comp$BIC[2], 1),
+    logLik_fijo  = round(comp$logLik[1], 1),
+    logLik_aleat = round(comp$logLik[2], 1),
+    Chisq        = round(comp$Chisq[2], 2),
+    Df           = comp$Df[2],
+    p_valor      = signif(comp[["Pr(>Chisq)"]][2], 3)
+  )
+}
+```
+
+
+### Función tablas de intensidad
+
+```{r}
+
+library(lme4)
+library(ggeffects)
+library(flextable)
+library(officer)
+library(purrr)
+
+# --- Efecto en puntos porcentuales de una variable (min vs max), igual que antes ---
+efecto_pp <- function(modelo, variable) {
+  pred <- tryCatch(
+    ggpredict(modelo, terms = paste0(variable, " [minmax]")),
+    error = function(e) NULL
+  )
+  if (is.null(pred) || nrow(pred) < 2) return(NA_real_)
+  round((pred$predicted[2] - pred$predicted[1]) * 100, 1)
+}
+
+# --- Detecta las variables "simples" de un modelo (todas las de efecto fijo, sin intercepto ni interacciones) ---
+variables_simples <- function(modelo) {
+  nombres <- names(lme4::fixef(modelo))
+  nombres <- nombres[nombres != "(Intercept)"]
+  nombres[!grepl(":", nombres)]
+}
+
+# --- Tabla de efectos simples: una fila por modelo, una columna por variable presente en ese modelo ---
+tabla_efectos_simple_auto <- function(modelo, nombre_modelo) {
+  vars <- variables_simples(modelo)
+  if (length(vars) == 0) {
+    return(data.frame(Modelo = nombre_modelo))
+  }
+  efectos <- sapply(vars, function(v) efecto_pp(modelo, v))
+  as.data.frame(c(list(Modelo = nombre_modelo), as.list(efectos)))
+}
+
+# --- Detecta el término de interacción de un modelo y separa cuál variable es la "moderadora" (libro/nivel_educ) ---
+detectar_interaccion <- function(modelo) {
+  nombres <- names(lme4::fixef(modelo))
+  termino <- nombres[grepl(":", nombres)]
+  if (length(termino) == 0) return(NULL)
+  partes <- strsplit(termino[1], ":")[[1]]
+
+  moderadoras <- c("libro", "nivel_educ")
+  if (partes[1] %in% moderadoras) {
+    list(contextual = partes[2], moderadora = partes[1])
+  } else {
+    list(contextual = partes[1], moderadora = partes[2])
+  }
+}
+
+# --- Tabla de efectos de interacción: efecto de la variable contextual/centrada en cada nivel del moderador (libro/nivel_educ) ---
+tabla_efectos_interaccion_auto <- function(modelo, nombre_modelo) {
+  info <- detectar_interaccion(modelo)
+  if (is.null(info)) return(data.frame(Modelo = nombre_modelo))
+
+  var_contextual <- info$contextual
+  var_moderadora <- info$moderadora
+
+  pred <- ggpredict(modelo, terms = c(paste0(var_contextual, " [minmax]"), var_moderadora))
+  pred <- as.data.frame(pred)
+  pred <- pred[order(pred$group, pred$x), ]
+
+  grupos <- sort(unique(pred$group))
+  efectos <- sapply(grupos, function(g) {
+    sub <- pred[pred$group == g, ]
+    round((sub$predicted[2] - sub$predicted[1]) * 100, 1)
+  })
+  names(efectos) <- paste0("Efecto_", var_moderadora, grupos, "_pp")
+
+  diferencia <- round(efectos[2] - efectos[1], 1)
+
+  data.frame(
+    Modelo = nombre_modelo,
+    Variable_contextual = var_contextual,
+    Moderador = var_moderadora,
+    as.list(efectos),
+    Diferencia_pp = unname(diferencia)
+  )
+}
+
+# --- Exportar a Word (igual que antes) ---
+exportar_tabla_efectos <- function(tabla, ruta) {
+  ft <- flextable::flextable(tabla) %>% flextable::theme_box() %>% flextable::autofit()
+  doc <- officer::read_docx()
+  doc <- flextable::body_add_flextable(doc, ft)
+  print(doc, target = ruta)
+}
+
+ruta_intensidad <- here::here("output", "Modelos_logit")
+if (!dir.exists(ruta_intensidad)) dir.create(ruta_intensidad, recursive = TRUE)
+
+```
+
 ### CIVED 1999
 
 ```{r}
@@ -147,6 +264,7 @@ M4_d2 <- glmer(
 ```
 
 
+#### Tabla modelo
 ```{r}
 
 etiquetas <- c(
@@ -182,6 +300,46 @@ tab_model(
   file        = archivo_docx
 )
 
+```
+
+#### Tabla intensidad
+
+```{r}
+modelos_simples_CIVED <- list(
+  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
+  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b
+)
+
+modelos_interaccion_CIVED <- list(
+  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
+  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
+  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
+  "M4_d1" = M4_d1, "M4_d2" = M4_d2
+)
+
+tabla_intensidad_simples_CIVED <- purrr::map_dfr(
+  names(modelos_simples_CIVED),
+  ~ tabla_efectos_simple_auto(modelos_simples_CIVED[[.x]], .x)
+)
+
+tabla_intensidad_interaccion_CIVED <- purrr::map_dfr(
+  names(modelos_interaccion_CIVED),
+  ~ tabla_efectos_interaccion_auto(modelos_interaccion_CIVED[[.x]], .x)
+)
+
+exportar_tabla_efectos(tabla_intensidad_simples_CIVED,
+                        file.path(ruta_intensidad, "intensidad_CIVED_1999_simples.docx"))
+exportar_tabla_efectos(tabla_intensidad_interaccion_CIVED,
+                        file.path(ruta_intensidad, "intensidad_CIVED_1999_interaccion.docx"))
+```
+
+### Test ANOVA
+
+```{r}
+anova_CIVED_1999 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "CIVED_1999", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "CIVED_1999", "nivel_educ")
+)
 ```
 
 
@@ -329,6 +487,8 @@ M4_f2 <- glmer(
 
 ```
 
+
+#### Tabla modelos
 ```{r}
 etiquetas <- c(
   "M0: Vacío",
@@ -366,6 +526,49 @@ tab_model(
   p.style     = "stars",
   dv.labels   = etiquetas,
   file        = archivo_docx
+)
+```
+
+#### Tabla intensidad
+
+```{r}
+modelos_simples_ICCS_2009 <- list(
+  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
+  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b, "M3_c" = M3_c
+)
+
+modelos_interaccion_ICCS_2009 <- list(
+  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
+  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
+  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
+  "M4_d1" = M4_d1, "M4_d2" = M4_d2,
+  "M4_e1" = M4_e1, "M4_e2" = M4_e2,
+  "M4_f1" = M4_f1, "M4_f2" = M4_f2
+)
+
+tabla_intensidad_simples_ICCS_2009 <- purrr::map_dfr(
+  names(modelos_simples_ICCS_2009),
+  ~ tabla_efectos_simple_auto(modelos_simples_ICCS_2009[[.x]], .x)
+)
+
+tabla_intensidad_interaccion_ICCS_2009 <- purrr::map_dfr(
+  names(modelos_interaccion_ICCS_2009),
+  ~ tabla_efectos_interaccion_auto(modelos_interaccion_ICCS_2009[[.x]], .x)
+)
+
+exportar_tabla_efectos(tabla_intensidad_simples_ICCS_2009,
+                        file.path(ruta_intensidad, "intensidad_ICCS_2009_simples.docx"))
+exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2009,
+                        file.path(ruta_intensidad, "intensidad_ICCS_2009_interaccion.docx"))
+```
+
+
+#### Test ANOVA
+
+```{r}
+anova_CIVED_1999 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "CIVED_1999", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "CIVED_1999", "nivel_educ")
 )
 ```
 
@@ -548,6 +751,7 @@ M4_h2 <- glmer(
 
 ```
 
+#### Tabla modelos
 
 ```{r}
 
@@ -595,6 +799,50 @@ tab_model(
   file        = archivo_docx
 )
 
+```
+
+#### Tabla intensidad
+
+```{r}
+modelos_simples_ICCS_2016 <- list(
+  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
+  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b, "M3_c" = M3_c, "M3_d" = M3_d
+)
+
+modelos_interaccion_ICCS_2016 <- list(
+  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
+  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
+  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
+  "M4_d1" = M4_d1, "M4_d2" = M4_d2,
+  "M4_e1" = M4_e1, "M4_e2" = M4_e2,
+  "M4_f1" = M4_f1, "M4_f2" = M4_f2,
+  "M4_g1" = M4_g1, "M4_g2" = M4_g2,
+  "M4_h1" = M4_h1, "M4_h2" = M4_h2
+)
+
+tabla_intensidad_simples_ICCS_2016 <- purrr::map_dfr(
+  names(modelos_simples_ICCS_2016),
+  ~ tabla_efectos_simple_auto(modelos_simples_ICCS_2016[[.x]], .x)
+)
+
+tabla_intensidad_interaccion_ICCS_2016 <- purrr::map_dfr(
+  names(modelos_interaccion_ICCS_2016),
+  ~ tabla_efectos_interaccion_auto(modelos_interaccion_ICCS_2016[[.x]], .x)
+)
+
+exportar_tabla_efectos(tabla_intensidad_simples_ICCS_2016,
+                        file.path(ruta_intensidad, "intensidad_ICCS_2016_simples.docx"))
+exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2016,
+                        file.path(ruta_intensidad, "intensidad_ICCS_2016_interaccion.docx"))
+```
+
+#### Test Anova
+
+```{r}
+anova_ICCS_2016 <- dplyr::bind_rows(
+  comparar_pendiente_aleatoria(M1, M1_a, "ICCS_2016", "libro"),
+  comparar_pendiente_aleatoria(M1, M1_b, "ICCS_2016", "nivel_educ")
+)
 ```
 
 
@@ -742,6 +990,9 @@ M4_f2 <- glmer(
 
 ```
 
+
+#### Tabla modelos
+
 ```{r}
 
 etiquetas <- c(
@@ -784,7 +1035,51 @@ tab_model(
 
 ```
 
+#### Tabla intesidad
 
+```{r}
+modelos_simples_PACES_2019 <- list(
+  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
+  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b, "M3_c" = M3_c
+)
+
+modelos_interaccion_PACES_2019 <- list(
+  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
+  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
+  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
+  "M4_d1" = M4_d1, "M4_d2" = M4_d2,
+  "M4_e1" = M4_e1, "M4_e2" = M4_e2,
+  "M4_f1" = M4_f1, "M4_f2" = M4_f2
+)
+
+tabla_intensidad_simples_PACES_2019 <- purrr::map_dfr(
+  names(modelos_simples_PACES_2019),
+  ~ tabla_efectos_simple_auto(modelos_simples_PACES_2019[[.x]], .x)
+)
+
+tabla_intensidad_interaccion_PACES_2019 <- purrr::map_dfr(
+  names(modelos_interaccion_PACES_2019),
+  ~ tabla_efectos_interaccion_auto(modelos_interaccion_PACES_2019[[.x]], .x)
+)
+
+exportar_tabla_efectos(tabla_intensidad_simples_PACES_2019,
+                        file.path(ruta_intensidad, "intensidad_PACES_2019_simples.docx"))
+exportar_tabla_efectos(tabla_intensidad_interaccion_PACES_2019,
+                        file.path(ruta_intensidad, "intensidad_PACES_2019_interaccion.docx"))
+```
+
+#### Test ANOVA
+
+```{r}
+tabla_anova_pendientes_logit <- dplyr::bind_rows(
+  anova_CIVED_1999, anova_ICCS_2009, anova_ICCS_2016, anova_PACES_2019
+)
+
+exportar_tabla_efectos(
+  tabla_anova_pendientes_logit,
+  here::here("output", "Modelos_logit", "anova_pendientes_aleatorias_logit.docx")
+)
+```
 
 
 
