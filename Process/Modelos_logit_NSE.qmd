@@ -1,0 +1,325 @@
+---
+title: "Moldelo_logit_NSE"
+format: html
+editor: visual
+---
+
+
+## Bases de datos
+
+
+```{r}
+pacman::p_load(tidyverse, dplyr, haven, car, magrittr, psych, readxl, fastDummies,
+                stargazer, modelsummary, summarytools, lme4, sjPlot, webshot2,
+                htmltools, officer, lmerTest, here, pandoc, fixest, ggeffects, flextable)
+
+ICCS_2009 <- readRDS(here::here("output", "data_procesada", "proc_ICCS_2009.rds"))
+ICCS_2016 <- readRDS(here::here("output", "data_procesada", "proc_ICCS_2016.rds"))
+```
+
+
+```{r}
+ICCS_2009 <- ICCS_2009 %>%
+  rename(nse = NISB)   
+
+ICCS_2016 <- ICCS_2016 %>%
+  rename(nse = S_NISB)
+```
+
+
+## Modelos
+
+### ICCS 2009 
+
+```{r}
+
+
+M0 <- glmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M1 <- glmer(
+  voto ~ nse + Sexo + (1 | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M1_a <- glmer(
+  voto ~ nse + Sexo + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M2 <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M3_a <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    clima_aula_escuela + (1 | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M3_b <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    tasa_voto_escuela + (1 | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M3_c <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    tasa_asamblea_escuela + (1 | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+# --- Interacciones con contextuales de escuela ---
+
+M4_a <- glmer(
+  voto ~ nse * clima_aula_escuela +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M4_b <- glmer(
+  voto ~ nse * tasa_voto_escuela +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M4_c <- glmer(
+  voto ~ nse * tasa_asamblea_escuela +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+# --- Interacciones con variables centradas (individuales, cwc) ---
+
+M4_d <- glmer(
+  voto ~ nse * indice_aula_ind_cwc +
+    Sexo + participacion_voto_cwc + asamblea_cwc + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M4_e <- glmer(
+  voto ~ nse * participacion_voto_cwc +
+    Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+M4_f <- glmer(
+  voto ~ nse * asamblea_cwc +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2009,
+  family = binomial
+)
+
+```
+
+
+```{r}
+etiquetas <- c(
+  "M0: Vacío",
+  "M1: Nivel 1",
+  "M1_a: Pend. aleat. (NSE)",
+  "M2: + Controles N1 (CWC)",
+  "M3_a: + Clima de aula (escuela)",
+  "M3_b: + Tasa de votación (escuela)",
+  "M3_c: + Tasa de asamblea (escuela)",
+  "M4_a: NSE × Clima aula",
+  "M4_b: NSE × Tasa votación",
+  "M4_c: NSE × Tasa asamblea",
+  "M4_d: NSE × Clima aula (ind)",
+  "M4_e: NSE × Participación voto (ind)",
+  "M4_f: NSE × Asamblea (ind)"
+)
+
+ruta_nse <- here::here("output", "Modelos_NSE")
+if (!dir.exists(ruta_nse)) dir.create(ruta_nse, recursive = TRUE)
+
+archivo_docx <- file.path(ruta_nse, "modelos_ICCS_2009_NSE_glm.doc")
+
+tab_model(
+  M0, M1, M1_a, M2, M3_a, M3_b, M3_c,
+  M4_a, M4_b, M4_c, M4_d, M4_e, M4_f,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  show.p      = FALSE,
+  p.style     = "stars",
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+```
+
+
+### ICCS 2016
+
+```{r}
+
+M0 <- glmer(
+  voto ~ 1 + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M1 <- glmer(
+  voto ~ nse + Sexo + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M1_a <- glmer(
+  voto ~ nse + Sexo + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M2 <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M3_a <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
+    clima_aula_escuela + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M3_b <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
+    tasa_voto_escuela + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M3_c <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
+    tasa_asamblea_escuela + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M3_d <- glmer(
+  voto ~ nse + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
+    perp_aprendizaje_voto_esc + (1 | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+# --- Interacciones con contextuales de escuela ---
+
+M4_a <- glmer(
+  voto ~ nse * clima_aula_escuela +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M4_b <- glmer(
+  voto ~ nse * tasa_voto_escuela +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M4_c <- glmer(
+  voto ~ nse * tasa_asamblea_escuela +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M4_d <- glmer(
+  voto ~ nse * perp_aprendizaje_voto_esc +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+# --- Interacciones con variables centradas (individuales, cwc) ---
+
+M4_e <- glmer(
+  voto ~ nse * indice_aula_ind_cwc +
+    Sexo + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M4_f <- glmer(
+  voto ~ nse * participacion_voto_cwc +
+    Sexo + indice_aula_ind_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M4_g <- glmer(
+  voto ~ nse * asamblea_cwc +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + aprendizaje_voto_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+
+M4_h <- glmer(
+  voto ~ nse * aprendizaje_voto_cwc +
+    Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nse | id_colegio),
+  data = ICCS_2016,
+  family = binomial
+)
+```
+
+
+```{r}
+
+etiquetas <- c(
+  "M0: Vacío",
+  "M1: Nivel 1",
+  "M1_a: Pend. aleat. (NSE)",
+  "M2: + Controles N1 (CWC)",
+  "M3_a: + Clima de aula (escuela)",
+  "M3_b: + Tasa de votación (escuela)",
+  "M3_c: + Tasa de asamblea (escuela)",
+  "M3_d: + Percepción aprendizaje (escuela)",
+  "M4_a: NSE × Clima aula",
+  "M4_b: NSE × Tasa votación",
+  "M4_c: NSE × Tasa asamblea",
+  "M4_d: NSE × Percepción aprendizaje",
+  "M4_e: NSE × Clima aula (ind)",
+  "M4_f: NSE × Participación voto (ind)",
+  "M4_g: NSE × Asamblea (ind)",
+  "M4_h: NSE × Aprendizaje voto (ind)"
+)
+
+archivo_docx <- file.path(ruta_nse, "modelos_ICCS_2016_NSE_glm.doc")
+
+tab_model(
+  M0, M1, M1_a, M2, M3_a, M3_b, M3_c, M3_d,
+  M4_a, M4_b, M4_c, M4_d, M4_e, M4_f, M4_g, M4_h,
+  show.re.var = TRUE,
+  show.icc    = TRUE,
+  show.r2     = TRUE,
+  show.ci     = FALSE,
+  show.p      = FALSE,
+  p.style     = "stars",
+  dv.labels   = etiquetas,
+  file        = archivo_docx
+)
+
+```
+
+
+
