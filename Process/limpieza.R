@@ -100,7 +100,8 @@ proc_ICCS_2009 <- ICCS_2009 %>%
                 Peso_est = TOTWGTS,
                 WGTADJ1S,
                 WGTFAC1,
-                Sexo = SGENDER) 
+                Sexo = SGENDER,
+                NISB) 
 
 #-------------------------------------------------------------------------------
 
@@ -129,7 +130,8 @@ proc_ICCS_2016 <- ICCS_2016 %>%
                 Peso_est = TOTWGTS,
                 WGTADJ1S,
                 WGTFAC1,
-                Sexo = S_GENDER) 
+                Sexo = S_GENDER,
+                S_NISB) 
 
 #-------------------------------------------------------------------------------
 
