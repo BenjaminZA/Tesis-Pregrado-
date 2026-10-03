@@ -37,6 +37,91 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
+
+```{r}
+
+library(dplyr)
+
+bases <- list(
+  CIVED_1999, 
+  ICCS_2009, 
+  ICCS_2016,  
+  PACES_2019 
+)
+
+vars_escuela <- c("clima_aula_escuela", "tasa_voto_escuela",
+                  "tasa_asamblea_escuela", "perp_aprendizaje_voto_esc")
+
+# 1) Rango de las variables de escuela (una fila por escuela)
+resumen_escuela <- purrr::imap_dfr(bases, function(df, nombre) {
+  vars <- intersect(vars_escuela, names(df))
+  por_escuela <- df %>%
+    group_by(id_colegio) %>%
+    summarise(across(all_of(vars), ~ first(.x)), .groups = "drop")
+  tibble(
+    cohorte    = nombre,
+    variable   = vars,
+    n_escuelas = nrow(por_escuela),
+    min   = sapply(vars, function(v) min(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
+    max   = sapply(vars, function(v) max(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
+    media = sapply(vars, function(v) mean(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
+    de    = sapply(vars, function(v) sd(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
+    # TRUE = cada escuela tiene un solo valor repetido en todos sus estudiantes
+    constante_en_escuela = sapply(vars, function(v)
+      all(tapply(df[[v]], df$id_colegio, function(x) length(unique(x[!is.na(x)])) <= 1))) %>% unname()
+  )
+})
+print(resumen_escuela, n = Inf)
+
+# 2) Codificación de Sexo por cohorte
+purrr::iwalk(bases, function(df, nombre) {
+  cat("\n==", nombre, "==\n")
+  print(table(df$Sexo, useNA = "ifany"))
+  print(attr(df$Sexo, "labels"))
+})
+
+# 3) Etiquetas (texto de ítem) que arrastran las variables _cwc
+cwc_vars <- c("indice_aula_ind_cwc", "participacion_voto_cwc",
+              "asamblea_cwc", "aprendizaje_voto_cwc")
+purrr::iwalk(bases, function(df, nombre) {
+  v <- intersect(cwc_vars, names(df))
+  cat("\n==", nombre, "==\n")
+  print(sapply(v, function(x) {
+    l <- attr(df[[x]], "label")
+    if (is.null(l)) NA_character_ else l
+  }))
+})
+
+```
+
+
+```{r}
+bases <- list(
+  CIVED_1999 = CIVED_1999,
+  ICCS_2009  = ICCS_2009,
+  ICCS_2016  = ICCS_2016,
+  PACES_2019 = PACES_2019
+)
+
+vars_escuela <- c("clima_aula_escuela", "tasa_voto_escuela",
+                  "tasa_asamblea_escuela", "perp_aprendizaje_voto_esc")
+
+for (nombre in names(bases)) {
+  df <- bases[[nombre]]
+  cat("\n==", nombre, "==\n")
+  for (v in vars_escuela) {
+    if (!v %in% names(df)) { cat(v, ": NO EXISTE en esta base\n"); next }
+    x <- as.numeric(df[[v]])
+    por_escuela <- tapply(x, df$id_colegio, function(z) z[!is.na(z)][1])
+    constante <- all(tapply(x, df$id_colegio, function(z) length(unique(z[!is.na(z)])) <= 1))
+    cat(sprintf("%-28s escuelas=%d  min=%.3f  max=%.3f  media=%.3f  de=%.3f  constante_en_escuela=%s\n",
+                v, length(por_escuela), min(por_escuela, na.rm = TRUE), max(por_escuela, na.rm = TRUE),
+                mean(por_escuela, na.rm = TRUE), sd(por_escuela, na.rm = TRUE), constante))
+  }
+}
+```
+
+
 ### Función ANOVA
 
 ```{r}

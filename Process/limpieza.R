@@ -829,7 +829,34 @@ proc_ICCS_2009  <- centrar_en_escuela(proc_ICCS_2009,  variables_centrar)
 proc_ICCS_2016  <- centrar_en_escuela(proc_ICCS_2016,  variables_centrar)
 proc_PACES_2019 <- centrar_en_escuela(proc_PACES_2019, variables_centrar)
 
-# 2. Guardar las bases en formato .sav
+#Centrar a la gran media-------------------------------------------------------
+
+
+centrar_gran_media <- function(datos, variables, factor = 1, id_escuela = "id_colegio") {
+  for (var in variables) {
+    if (!var %in% names(datos)) next
+    x <- as.numeric(datos[[var]])
+    # una fila por escuela (la variable es constante dentro de cada escuela)
+    por_escuela <- tapply(x, datos[[id_escuela]], function(z) z[!is.na(z)][1])
+    gran_media  <- mean(por_escuela, na.rm = TRUE)
+    datos[[paste0(var, "_gmc")]] <- (x - gran_media) * factor
+  }
+  datos
+}
+
+vars_clima <- "clima_aula_escuela"
+vars_prop  <- c("tasa_voto_escuela", "tasa_asamblea_escuela", "perp_aprendizaje_voto_esc")
+
+# Clima: solo centrado (escala 1-4)
+# Proporciones 0-1: centradas y reescaladas x10 (1 unidad = 10 puntos porcentuales)
+proc_CIVED_1999 <- proc_CIVED_1999 %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
+proc_ICCS_2009  <- proc_ICCS_2009  %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
+proc_ICCS_2016  <- proc_ICCS_2016  %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
+proc_PACES_2019 <- proc_PACES_2019 %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
+
+
+
+# 2. Guardar las bases en formato .sav------------------------------------------
 # Usamos haven::write_sav para mantener la compatibilidad con SPSS
 
 saveRDS(proc_CIVED_1999, "output/data_procesada/proc_CIVED_1999.rds")
