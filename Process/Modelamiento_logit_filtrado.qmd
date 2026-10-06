@@ -28,26 +28,41 @@ pacman::p_load(tidyverse,
 # Umbral: se conservan las escuelas con >= UMBRAL_N estudiantes con datos completos en el modelo
 # (debe coincidir con el usado al crear las bases proc_<COHORTE>_filtro<N>.rds)
 UMBRAL_N <- 5
-sufijo   <- paste0("_filtro", UMBRAL_N)
+sufijo   <- paste0("_filtro5", UMBRAL_N)
 
 # Carpeta de salida propia para esta versión (no pisa output/Modelos_logit)
 ruta_salida <- here::here("output", "Modelos_logit_filtrado")
 if (!dir.exists(ruta_salida)) dir.create(ruta_salida, recursive = TRUE)
 ```
+### Librería
 
-### Bases de datos (filtradas)
+```{r}
+pacman::p_load(tidyverse, 
+               dplyr, 
+               haven, 
+               car, 
+               magrittr,
+               psych,
+               readxl, 
+               fastDummies,
+               stargazer,
+               modelsummary,
+               summarytools,
+               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest)
+
+```
+
+### Bases de datos
 
 ```{r}
 
-dir_proc <- here::here("output", "data_procesada")
+CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999_filtro5.rds")
 
-CIVED_1999 <- readRDS(file.path(dir_proc, paste0("proc_CIVED_1999", sufijo, ".rds")))
+ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009_filtro5.rds")
 
-ICCS_2009  <- readRDS(file.path(dir_proc, paste0("proc_ICCS_2009",  sufijo, ".rds")))
+ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016_filtro5.rds")
 
-ICCS_2016  <- readRDS(file.path(dir_proc, paste0("proc_ICCS_2016",  sufijo, ".rds")))
-
-PACES_2019 <- readRDS(file.path(dir_proc, paste0("proc_PACES_2019", sufijo, ".rds")))
+PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019_filtro5.rds")
 
 ```
 
