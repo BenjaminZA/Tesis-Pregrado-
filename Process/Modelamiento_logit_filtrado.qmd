@@ -1,5 +1,5 @@
 ---
-title: "Modelamiento_logit"
+title: "Modelamiento_logit_filtrado"
 format: html
 editor: visual
 ---
@@ -22,78 +22,36 @@ pacman::p_load(tidyverse,
 
 ```
 
-### Bases de datos
+### Parámetros de la versión filtrada
+
+```{r}
+# Umbral: se conservan las escuelas con >= UMBRAL_N estudiantes con datos completos en el modelo
+# (debe coincidir con el usado al crear las bases proc_<COHORTE>_filtro<N>.rds)
+UMBRAL_N <- 5
+sufijo   <- paste0("_filtro", UMBRAL_N)
+
+# Carpeta de salida propia para esta versión (no pisa output/Modelos_logit)
+ruta_salida <- here::here("output", "Modelos_logit_filtrado")
+if (!dir.exists(ruta_salida)) dir.create(ruta_salida, recursive = TRUE)
+```
+
+### Bases de datos (filtradas)
 
 ```{r}
 
-CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999.rds")
+dir_proc <- here::here("output", "data_procesada")
 
-ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009.rds")
+CIVED_1999 <- readRDS(file.path(dir_proc, paste0("proc_CIVED_1999", sufijo, ".rds")))
 
-ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016.rds")
+ICCS_2009  <- readRDS(file.path(dir_proc, paste0("proc_ICCS_2009",  sufijo, ".rds")))
 
-PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
+ICCS_2016  <- readRDS(file.path(dir_proc, paste0("proc_ICCS_2016",  sufijo, ".rds")))
 
-
-```
-
-
-```{r}
-
-library(dplyr)
-
-bases <- list(
-  CIVED_1999, 
-  ICCS_2009, 
-  ICCS_2016,  
-  PACES_2019 
-)
-
-vars_escuela <- c("clima_aula_escuela_gmc", "tasa_voto_escuela_gmc",
-                  "tasa_asamblea_escuela_gmc", "perp_aprendizaje_voto_esc_gmc")
-
-# 1) Rango de las variables de escuela (una fila por escuela)
-resumen_escuela <- purrr::imap_dfr(bases, function(df, nombre) {
-  vars <- intersect(vars_escuela, names(df))
-  por_escuela <- df %>%
-    group_by(id_colegio) %>%
-    summarise(across(all_of(vars), ~ first(.x)), .groups = "drop")
-  tibble(
-    cohorte    = nombre,
-    variable   = vars,
-    n_escuelas = nrow(por_escuela),
-    min   = sapply(vars, function(v) min(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
-    max   = sapply(vars, function(v) max(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
-    media = sapply(vars, function(v) mean(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
-    de    = sapply(vars, function(v) sd(as.numeric(por_escuela[[v]]), na.rm = TRUE)) %>% unname(),
-    # TRUE = cada escuela tiene un solo valor repetido en todos sus estudiantes
-    constante_en_escuela = sapply(vars, function(v)
-      all(tapply(df[[v]], df$id_colegio, function(x) length(unique(x[!is.na(x)])) <= 1))) %>% unname()
-  )
-})
-print(resumen_escuela, n = Inf)
-
-# 2) Codificación de Sexo por cohorte
-purrr::iwalk(bases, function(df, nombre) {
-  cat("\n==", nombre, "==\n")
-  print(table(df$Sexo, useNA = "ifany"))
-  print(attr(df$Sexo, "labels"))
-})
-
-# 3) Etiquetas (texto de ítem) que arrastran las variables _cwc
-cwc_vars <- c("indice_aula_ind_cwc", "participacion_voto_cwc",
-              "asamblea_cwc", "aprendizaje_voto_cwc")
-purrr::iwalk(bases, function(df, nombre) {
-  v <- intersect(cwc_vars, names(df))
-  cat("\n==", nombre, "==\n")
-  print(sapply(v, function(x) {
-    l <- attr(df[[x]], "label")
-    if (is.null(l)) NA_character_ else l
-  }))
-})
+PACES_2019 <- readRDS(file.path(dir_proc, paste0("proc_PACES_2019", sufijo, ".rds")))
 
 ```
 
+#### Chequeo de las bases filtradas
 
 ```{r}
 bases <- list(
@@ -103,56 +61,53 @@ bases <- list(
   PACES_2019 = PACES_2019
 )
 
-vars_escuela <- c("clima_aula_escuela_gmc", "tasa_voto_escuela_gmc",
-                  "tasa_asamblea_escuela_gmc", "perp_aprendizaje_voto_esc_gmc")
+# Número esperado de variables _gmc por cohorte (CIVED 2, ICCS 2009 3, ICCS 2016 4, PACES 3)
+n_gmc_esperado <- c(CIVED_1999 = 2, ICCS_2009 = 3, ICCS_2016 = 4, PACES_2019 = 3)
 
-for (nombre in names(bases)) {
-  df <- bases[[nombre]]
-  cat("\n==", nombre, "==\n")
-  for (v in vars_escuela) {
-    if (!v %in% names(df)) { cat(v, ": NO EXISTE en esta base\n"); next }
-    x <- as.numeric(df[[v]])
-    por_escuela <- tapply(x, df$id_colegio, function(z) z[!is.na(z)][1])
-    constante <- all(tapply(x, df$id_colegio, function(z) length(unique(z[!is.na(z)])) <= 1))
-    cat(sprintf("%-28s escuelas=%d  min=%.3f  max=%.3f  media=%.3f  de=%.3f  constante_en_escuela=%s\n",
-                v, length(por_escuela), min(por_escuela, na.rm = TRUE), max(por_escuela, na.rm = TRUE),
-                mean(por_escuela, na.rm = TRUE), sd(por_escuela, na.rm = TRUE), constante))
-  }
-}
+chequeo_bases <- purrr::imap_dfr(bases, function(df, nombre) {
+  tibble::tibble(
+    cohorte     = nombre,
+    escuelas    = dplyr::n_distinct(df$id_colegio),
+    estudiantes = nrow(df),
+    n_gmc       = sum(grepl("_gmc$", names(df))),
+    n_gmc_ok    = sum(grepl("_gmc$", names(df))) == n_gmc_esperado[[nombre]]
+  )
+})
+print(chequeo_bases)
+stopifnot(all(chequeo_bases$n_gmc_ok))
 ```
 
-#### Función Anova Test
+### Función ANOVA
 
 ```{r}
+comparar_pendiente_aleatoria <- function(modelo_fijo, modelo_aleatorio, nombre_cohorte, nombre_variable) {
+  ll0 <- as.numeric(logLik(modelo_fijo))
+  ll1 <- as.numeric(logLik(modelo_aleatorio))
+  chi <- max(0, 2 * (ll1 - ll0))                    # evita valores negativos por optimización
 
-library(dplyr)
-
-comparar_pendiente_aleatoria <- function(m_fijo, m_aleat, cohorte, pendiente) {
-  ll0 <- as.numeric(logLik(m_fijo))
-  ll1 <- as.numeric(logLik(m_aleat))
-  chi <- max(0, 2 * (ll1 - ll0))                       # evita valores negativos por optimización
-
-  # p-value corregido por borde (Stram & Lee, 1994; Snijders & Bosker, 2012)
+  # p-value corregido por borde: mezcla 0.5*chi2(1) + 0.5*chi2(2)
+  # (Stram & Lee, 1994; Snijders & Bosker, 2012)
   p_mezcla <- if (chi == 0) 1 else
     0.5 * pchisq(chi, df = 1, lower.tail = FALSE) +
     0.5 * pchisq(chi, df = 2, lower.tail = FALSE)
 
-  tibble(
-    Cohorte       = cohorte,
-    Pendiente     = pendiente,
-    AIC_fijo      = AIC(m_fijo),   AIC_aleat    = AIC(m_aleat),
-    BIC_fijo      = BIC(m_fijo),   BIC_aleat    = BIC(m_aleat),
-    logLik_fijo   = ll0,           logLik_aleat = ll1,
-    Chisq         = chi,
-    Df            = 2,                                  # parámetros agregados (nominal)
-    p_valor       = p_mezcla,                           # corregido (mezcla 0.5χ²1 + 0.5χ²2)
-    p_chi2_2gl    = pchisq(chi, df = 2, lower.tail = FALSE),  # ingenuo, solo de referencia
-    singular_aleat = isSingular(m_aleat)
+  data.frame(
+    Cohorte        = nombre_cohorte,
+    Pendiente      = nombre_variable,
+    AIC_fijo       = round(AIC(modelo_fijo), 1),
+    AIC_aleat      = round(AIC(modelo_aleatorio), 1),
+    BIC_fijo       = round(BIC(modelo_fijo), 1),
+    BIC_aleat      = round(BIC(modelo_aleatorio), 1),
+    logLik_fijo    = round(ll0, 1),
+    logLik_aleat   = round(ll1, 1),
+    Chisq          = round(chi, 2),
+    Df             = 2,                              # parámetros agregados (nominal)
+    p_valor        = signif(p_mezcla, 3),            # corregido (mezcla)
+    p_chi2_2gl     = signif(pchisq(chi, df = 2, lower.tail = FALSE), 3),  # ingenuo, solo referencia
+    singular_aleat = isSingular(modelo_aleatorio)
   )
 }
-
 ```
-
 
 ### Función tablas de intensidad
 
@@ -244,7 +199,7 @@ exportar_tabla_efectos <- function(tabla, ruta) {
   print(doc, target = ruta)
 }
 
-ruta_intensidad <- here::here("output", "Modelos_logit")
+ruta_intensidad <- ruta_salida
 if (!dir.exists(ruta_intensidad)) dir.create(ruta_intensidad, recursive = TRUE)
 
 ```
@@ -358,8 +313,8 @@ M4_d2 <- glmer(
 
 ```
 
-
 #### Tabla modelo
+
 ```{r}
 
 etiquetas <- c(
@@ -380,7 +335,7 @@ etiquetas <- c(
   "M4_d2: Nivel educ x Aprendizaje voto (ind)"
 )
 
-archivo_docx <- here::here("output", "Modelos_logit", "modelos_CIVED_1999_completo_glm.doc")
+archivo_docx <- file.path(ruta_salida, paste0("modelos_CIVED_1999_completo_glm", sufijo, ".doc"))
 
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b,
@@ -423,9 +378,9 @@ tabla_intensidad_interaccion_CIVED <- purrr::map_dfr(
 )
 
 exportar_tabla_efectos(tabla_intensidad_simples_CIVED,
-                        file.path(ruta_intensidad, "intensidad_CIVED_1999_simples.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_CIVED_1999_simples", sufijo, ".docx")))
 exportar_tabla_efectos(tabla_intensidad_interaccion_CIVED,
-                        file.path(ruta_intensidad, "intensidad_CIVED_1999_interaccion.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_CIVED_1999_interaccion", sufijo, ".docx")))
 ```
 
 #### Test ANOVA
@@ -436,7 +391,6 @@ anova_CIVED_1999 <- dplyr::bind_rows(
   comparar_pendiente_aleatoria(M1, M1_b, "CIVED_1999", "nivel_educ")
 )
 ```
-
 
 ### ICCS 2009
 
@@ -582,8 +536,8 @@ M4_f2 <- glmer(
 
 ```
 
-
 #### Tabla modelos
+
 ```{r}
 etiquetas <- c(
   "M0: Vacío",
@@ -608,7 +562,7 @@ etiquetas <- c(
   "M4_f2: Nivel educ x Asamblea (ind)"
 )
 
-archivo_docx <- here::here("output", "Modelos_logit", "modelos_ICCS_2009_completo_glm.doc")
+archivo_docx <- file.path(ruta_salida, paste0("modelos_ICCS_2009_completo_glm", sufijo, ".doc"))
 
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c,
@@ -652,11 +606,10 @@ tabla_intensidad_interaccion_ICCS_2009 <- purrr::map_dfr(
 )
 
 exportar_tabla_efectos(tabla_intensidad_simples_ICCS_2009,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2009_simples.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_ICCS_2009_simples", sufijo, ".docx")))
 exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2009,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2009_interaccion.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_ICCS_2009_interaccion", sufijo, ".docx")))
 ```
-
 
 #### Test ANOVA
 
@@ -878,7 +831,7 @@ etiquetas <- c(
   "M4_h2: Nivel educ x Aprendizaje voto (ind)"
 )
 
-archivo_docx <- here::here("output", "Modelos_logit", "modelos_ICCS_2016_completo_glm.doc")
+archivo_docx <- file.path(ruta_salida, paste0("modelos_ICCS_2016_completo_glm", sufijo, ".doc"))
 
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c, M3_d,
@@ -926,9 +879,9 @@ tabla_intensidad_interaccion_ICCS_2016 <- purrr::map_dfr(
 )
 
 exportar_tabla_efectos(tabla_intensidad_simples_ICCS_2016,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2016_simples.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_ICCS_2016_simples", sufijo, ".docx")))
 exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2016,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2016_interaccion.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_ICCS_2016_interaccion", sufijo, ".docx")))
 ```
 
 #### Test Anova
@@ -939,7 +892,6 @@ anova_ICCS_2016 <- dplyr::bind_rows(
   comparar_pendiente_aleatoria(M1, M1_b, "ICCS_2016", "nivel_educ")
 )
 ```
-
 
 ### PACES 2019
 
@@ -1085,7 +1037,6 @@ M4_f2 <- glmer(
 
 ```
 
-
 #### Tabla modelos
 
 ```{r}
@@ -1113,7 +1064,7 @@ etiquetas <- c(
   "M4_f2: Nivel educ x Asamblea (ind)"
 )
 
-archivo_docx <- here::here("output", "Modelos_logit", "modelos_PACES_2019_completo_glm.doc")
+archivo_docx <- file.path(ruta_salida, paste0("modelos_PACES_2019_completo_glm", sufijo, ".doc"))
 
 tab_model(
   M0, M1, M1_a, M1_b, M2, M3_a, M3_b, M3_c,
@@ -1158,9 +1109,9 @@ tabla_intensidad_interaccion_PACES_2019 <- purrr::map_dfr(
 )
 
 exportar_tabla_efectos(tabla_intensidad_simples_PACES_2019,
-                        file.path(ruta_intensidad, "intensidad_PACES_2019_simples.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_PACES_2019_simples", sufijo, ".docx")))
 exportar_tabla_efectos(tabla_intensidad_interaccion_PACES_2019,
-                        file.path(ruta_intensidad, "intensidad_PACES_2019_interaccion.docx"))
+                        file.path(ruta_intensidad, paste0("intensidad_PACES_2019_interaccion", sufijo, ".docx")))
 ```
 
 #### Test ANOVA
@@ -1172,7 +1123,6 @@ anova_PACES_2019 <- dplyr::bind_rows(
 )
 ```
 
-
 ```{r}
 tabla_anova_pendientes_logit <- dplyr::bind_rows(
   anova_CIVED_1999, anova_ICCS_2009, anova_ICCS_2016, anova_PACES_2019
@@ -1180,12 +1130,6 @@ tabla_anova_pendientes_logit <- dplyr::bind_rows(
 
 exportar_tabla_efectos(
   tabla_anova_pendientes_logit,
-  here::here("output", "Modelos_logit", "anova_pendientes_aleatorias_logit.docx")
+  file.path(ruta_salida, paste0("anova_pendientes_aleatorias_logit", sufijo, ".docx"))
 )
 ```
-
-
-
-
-
-

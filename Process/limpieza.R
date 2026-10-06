@@ -875,17 +875,6 @@ bases_juntas <- bind_rows(
   .id = "ano"
 )
 
-#ID para la base Global
-bases_juntas <- bases_juntas %>%
-  mutate(
-    # ID única para estudiantes (Nivel 1)
-    id_global = paste0(ano, "_", id),
-    # ID única para colegios ( Nivel 2)
-    id_colegio_global = paste0(ano, "_", id_colegio))
-
-
-# 3. Intenta guardar nuevamente
-haven::write_sav(bases_juntas, "output/data_procesada/bases_juntas.sav")
 
 
 

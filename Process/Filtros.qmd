@@ -1,0 +1,305 @@
+---
+title: "Filtros"
+format: html
+editor: visual
+---
+
+##  Libreria
+
+```{r}
+pacman::p_load(tidyverse, 
+               dplyr, 
+               haven, 
+               car, 
+               magrittr,
+               psych,
+               readxl, 
+               fastDummies,
+               stargazer,
+               modelsummary,
+               summarytools,
+               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest)
+```
+
+## Bases de datos
+
+```{r}
+CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999.rds")
+
+ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009.rds")
+
+ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016.rds")
+
+PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
+
+```
+
+```{r}
+ruta <- here::here("output", "data_procesada", "proc_ICCS_2016.rds")
+ICCS_2016 <- readRDS(ruta)
+
+vars_cc <- c("participacion_voto_cwc", "asamblea_cwc", "aprendizaje_voto_cwc")
+ICCS_2016[vars_cc] <- lapply(ICCS_2016[vars_cc], as.numeric)
+
+saveRDS(ICCS_2016, ruta)
+```
+
+
+### purba 1
+
+```{r}
+ctrl <- glmerControl(optimizer = "bobyqa")
+
+m_orig <- glmer(
+  voto ~ libro * clima_aula_escuela + nivel_educ + Sexo +
+    indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    (1 + libro | id_colegio),
+  data = PACES_2019, family = binomial, control = ctrl
+)
+
+m_gmc <- glmer(
+  voto ~ libro * clima_aula_escuela_gmc + nivel_educ + Sexo +
+    indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    (1 + libro | id_colegio),
+  data = PACES_2019, family = binomial, control = ctrl
+)
+
+# 1) El ajuste debe ser idéntico
+c(orig = as.numeric(logLik(m_orig)), gmc = as.numeric(logLik(m_gmc)))
+
+# 2) Coeficientes lado a lado
+data.frame(termino = names(fixef(m_gmc)),
+           orig = round(fixef(m_orig), 4),
+           gmc  = round(fixef(m_gmc), 4),
+           row.names = NULL)
+
+# 3) El libro "centrado" debe ser: libro original + interacción x media de clima
+gm <- mean(PACES_2019$clima_aula_escuela - PACES_2019$clima_aula_escuela_gmc, na.rm = TRUE)
+c(esperado = unname(fixef(m_orig)["libro"] + fixef(m_orig)["libro:clima_aula_escuela"] * gm),
+  obtenido = unname(fixef(m_gmc)["libro"]))
+
+```
+
+
+```{r}
+f <- 10   # 1 si no reescalaste
+
+m_orig2 <- glmer(
+  voto ~ libro * tasa_voto_escuela + nivel_educ + Sexo +
+    indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    (1 + libro | id_colegio),
+  data = ICCS_2009, family = binomial, control = ctrl
+)
+
+m_gmc2 <- glmer(
+  voto ~ libro * tasa_voto_escuela_gmc + nivel_educ + Sexo +
+    indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
+    (1 + libro | id_colegio),
+  data = ICCS_2009, family = binomial, control = ctrl
+)
+
+c(orig = as.numeric(logLik(m_orig2)), gmc = as.numeric(logLik(m_gmc2)))
+
+# La tasa y su interacción, multiplicadas por f, deben igualar a las originales
+rbind(
+  tasa_orig        = fixef(m_orig2)["tasa_voto_escuela"],
+  tasa_gmc_por_f   = fixef(m_gmc2)["tasa_voto_escuela_gmc"] * f,
+  inter_orig       = fixef(m_orig2)["libro:tasa_voto_escuela"],
+  inter_gmc_por_f  = fixef(m_gmc2)["libro:tasa_voto_escuela_gmc"] * f
+)
+```
+
+```{r}
+library(dplyr)
+library(purrr)
+library(tibble)
+
+# ---- 0. Cargar bases y armar la lista ---------------------------------------
+cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+
+bases <- map(cohortes, ~ readRDS(here::here("output", "data_procesada",
+                                            paste0("proc_", .x, ".rds"))))
+names(bases) <- cohortes
+
+# ---- 1. Chequeo de etiquetas / clase en variables _cwc y _gmc ---------------
+iwalk(bases, function(df, nombre) {
+  vars <- grep("_cwc$|_gmc$", names(df), value = TRUE)
+  con_label  <- vars[sapply(vars, function(v) !is.null(attr(df[[v]], "label")))]
+  no_numeric <- vars[sapply(vars, function(v) !identical(class(df[[v]]), "numeric"))]
+  cat(sprintf("%-11s %2d variables _cwc/_gmc | con etiqueta: %s | clase no numérica: %s\n",
+              nombre, length(vars),
+              if (length(con_label)  == 0) "ninguna" else paste(con_label,  collapse = ", "),
+              if (length(no_numeric) == 0) "ninguna" else paste(no_numeric, collapse = ", ")))
+})
+# Esperado: CIVED 4, ICCS09 6, ICCS16 8, PACES 6, y "ninguna" en ambas columnas.
+
+# ---- 2. Función: n de estudiantes por escuela -------------------------------
+vars_fuente <- c("indice_aula_ind", "participacion_voto", "asamblea", "aprendizaje_voto")
+vars_modelo <- c("voto", "libro", "nivel_educ", "Sexo")
+vars_cwc    <- c("indice_aula_ind_cwc", "participacion_voto_cwc",
+                 "asamblea_cwc", "aprendizaje_voto_cwc")
+
+n_por_escuela <- function(df) {
+  fuentes <- intersect(vars_fuente, names(df))
+  cwc     <- intersect(vars_cwc, names(df))
+  df %>%
+    mutate(caso_modelo = complete.cases(across(all_of(c(vars_modelo, cwc))))) %>%
+    group_by(id_colegio) %>%
+    summarise(n_total  = n(),
+              n_modelo = sum(caso_modelo),
+              across(all_of(fuentes), ~ sum(!is.na(.x)), .names = "n_{.col}"),
+              .groups = "drop")
+}
+
+# ---- A) Resumen por cohorte --------------------------------------------------
+resumen_n <- imap_dfr(bases, function(df, nombre) {
+  n <- n_por_escuela(df)
+  tibble(cohorte          = nombre,
+         escuelas         = nrow(n),
+         min_n_total      = min(n$n_total),
+         mediana_n_total  = median(n$n_total),
+         min_n_modelo     = min(n$n_modelo),
+         mediana_n_modelo = median(n$n_modelo),
+         p10_n_modelo     = unname(quantile(n$n_modelo, 0.10)),
+         esc_menos_5      = sum(n$n_modelo < 5),
+         esc_menos_10     = sum(n$n_modelo < 10),
+         esc_menos_15     = sum(n$n_modelo < 15))
+})
+print(resumen_n, width = Inf)
+
+# ---- B) Las 10 escuelas más pequeñas por cohorte ----------------------------
+iwalk(bases, function(df, nombre) {
+  cat("\n====", nombre, "====\n")
+  print(n_por_escuela(df) %>% arrange(n_modelo) %>% slice_head(n = 10), width = Inf)
+})
+
+# ---- C) Escuelas con tasas extremas (exactamente 0 o 1) ---------------------
+iwalk(bases, function(df, nombre) {
+  tasas <- intersect(c("tasa_voto_escuela", "tasa_asamblea_escuela"), names(df))
+  esc <- df %>%
+    group_by(id_colegio) %>%
+    summarise(across(all_of(tasas), ~ as.numeric(first(.x[!is.na(.x)]))), .groups = "drop") %>%
+    left_join(n_por_escuela(df) %>% select(id_colegio, n_total, n_modelo),
+              by = "id_colegio")
+  ext <- esc %>% filter(if_any(all_of(tasas), ~ .x %in% c(0, 1)))
+  cat("\n====", nombre, "| escuelas con alguna tasa = 0 o 1:", nrow(ext), "====\n")
+  if (nrow(ext) > 0) print(ext %>% arrange(n_modelo), n = 20, width = Inf)
+})
+```
+
+```{r}
+umbrales <- c(5, 8, 10)
+
+ids_extremas <- function(df) {
+  tasas <- intersect(c("tasa_voto_escuela", "tasa_asamblea_escuela"), names(df))
+  df %>%
+    group_by(id_colegio) %>%
+    summarise(across(all_of(tasas), ~ as.numeric(first(.x[!is.na(.x)]))), .groups = "drop") %>%
+    filter(if_any(all_of(tasas), ~ .x %in% c(0, 1))) %>%
+    pull(id_colegio)
+}
+
+sens_umbral <- imap_dfr(bases, function(df, nombre) {
+  n   <- n_por_escuela(df)
+  ext <- ids_extremas(df)
+  map_dfr(umbrales, function(u) {
+    fuera <- n %>% filter(n_modelo < u)
+    tibble(cohorte        = nombre,
+           umbral         = u,
+           esc_total      = nrow(n),
+           esc_fuera      = nrow(fuera),
+           est_modelo     = sum(n$n_modelo),
+           est_fuera      = sum(fuera$n_modelo),
+           pct_est_fuera  = round(100 * sum(fuera$n_modelo) / sum(n$n_modelo), 1),
+           extremas_antes = length(ext),
+           extremas_quedan = sum(ext %in% n$id_colegio[n$n_modelo >= u]))
+  })
+})
+print(sens_umbral, n = Inf, width = Inf)
+```
+
+```{r}
+# ==============================================================================
+# Sensibilidad: bases filtradas por tamaño de escuela
+# Crea proc_<COHORTE>_filtro<N>.rds  (las bases originales NO se tocan)
+# ==============================================================================
+library(tidyverse)
+library(here)
+
+UMBRAL_N <- 5                                   # mín. de estudiantes con datos completos por escuela
+sufijo   <- paste0("_filtro", UMBRAL_N)
+cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+dir_proc <- here("output", "data_procesada")
+
+# ---- Variables (mismas que en el modelado) ----------------------------------
+vars_fuente <- c("indice_aula_ind", "participacion_voto", "asamblea", "aprendizaje_voto")
+vars_modelo <- c("voto", "libro", "nivel_educ", "Sexo")
+vars_cwc    <- c("indice_aula_ind_cwc", "participacion_voto_cwc",
+                 "asamblea_cwc", "aprendizaje_voto_cwc")
+vars_clima  <- "clima_aula_escuela"
+vars_prop   <- c("tasa_voto_escuela", "tasa_asamblea_escuela", "perp_aprendizaje_voto_esc")
+
+# ---- Funciones ---------------------------------------------------------------
+n_por_escuela <- function(df) {
+  cwc <- intersect(vars_cwc, names(df))
+  df %>%
+    mutate(caso_modelo = complete.cases(across(all_of(c(vars_modelo, cwc))))) %>%
+    group_by(id_colegio) %>%
+    summarise(n_total = n(), n_modelo = sum(caso_modelo), .groups = "drop")
+}
+
+centrar_gran_media <- function(datos, variables, factor = 1, id_escuela = "id_colegio") {
+  for (var in variables) {
+    if (!var %in% names(datos)) next
+    x <- as.numeric(datos[[var]])
+    por_escuela <- tapply(x, datos[[id_escuela]], function(z) z[!is.na(z)][1])
+    gran_media  <- mean(por_escuela, na.rm = TRUE)
+    datos[[paste0(var, "_gmc")]] <- (x - gran_media) * factor
+  }
+  datos
+}
+
+chequeo_gmc <- function(df, nombre) {
+  vars <- grep("_gmc$", names(df), value = TRUE)
+  cat("\n==", nombre, "==\n")
+  df %>%
+    group_by(id_colegio) %>%
+    summarise(across(all_of(vars), ~ first(.x[!is.na(.x)])), .groups = "drop") %>%
+    summarise(across(all_of(vars), list(media = ~ mean(.x, na.rm = TRUE),
+                                        min   = ~ min(.x, na.rm = TRUE),
+                                        max   = ~ max(.x, na.rm = TRUE)))) %>%
+    pivot_longer(everything(), names_to = c("variable", ".value"),
+                 names_pattern = "(.*)_(media|min|max)$") %>%
+    print(width = Inf)
+}
+
+# ---- Proceso por cohorte -----------------------------------------------------
+resumen <- map_dfr(cohortes, function(co) {
+  df <- readRDS(file.path(dir_proc, paste0("proc_", co, ".rds")))
+  n  <- n_por_escuela(df)
+
+  ids_ok  <- n$id_colegio[n$n_modelo >= UMBRAL_N]
+  excluir <- n %>% filter(n_modelo < UMBRAL_N)
+
+  # Primero filtrar, luego recalcular _gmc (la gran media depende de las escuelas que quedan)
+  df_f <- df %>%
+    filter(id_colegio %in% ids_ok) %>%
+    centrar_gran_media(vars_clima) %>%
+    centrar_gran_media(vars_prop, factor = 10)
+
+  chequeo_gmc(df_f, co)
+
+  saveRDS(df_f, file.path(dir_proc, paste0("proc_", co, sufijo, ".rds")))
+
+  n_f <- n_por_escuela(df_f)
+  tibble(cohorte          = co,
+         esc_original     = sum(n$n_modelo > 0),
+         esc_filtrada     = nrow(n_f),
+         est_original     = sum(n$n_modelo),
+         est_filtrada     = sum(n_f$n_modelo),
+         min_n_modelo_filt = min(n_f$n_modelo))
+})
+
+print(resumen, width = Inf)
+```
+
