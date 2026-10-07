@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 
-##  Libreria
+## Libreria
 
 ```{r}
 pacman::p_load(tidyverse, 
@@ -44,7 +44,6 @@ ICCS_2016[vars_cc] <- lapply(ICCS_2016[vars_cc], as.numeric)
 saveRDS(ICCS_2016, ruta)
 ```
 
-
 ### purba 1
 
 ```{r}
@@ -79,7 +78,6 @@ c(esperado = unname(fixef(m_orig)["libro"] + fixef(m_orig)["libro:clima_aula_esc
   obtenido = unname(fixef(m_gmc)["libro"]))
 
 ```
-
 
 ```{r}
 f <- 10   # 1 si no reescalaste
@@ -302,4 +300,29 @@ resumen <- map_dfr(cohortes, function(co) {
 
 print(resumen, width = Inf)
 ```
+
+```{r}
+library(tidyverse)
+cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+dir_proc <- here::here("output", "data_procesada")
+
+verif <- map_dfr(cohortes, function(co) {
+  full <- readRDS(file.path(dir_proc, paste0("proc_", co, ".rds")))
+  filt <- readRDS(file.path(dir_proc, paste0("proc_", co, "_filtro5.rds")))
+  vars <- grep("_gmc$", names(filt), value = TRUE)
+
+  una_fila <- function(df) df %>% group_by(id_colegio) %>%
+    summarise(across(all_of(vars), ~ first(.x[!is.na(.x)])), .groups = "drop")
+
+  f <- una_fila(filt)
+  c_ <- una_fila(full) %>% filter(id_colegio %in% f$id_colegio)   # base completa, solo escuelas que quedaron
+
+  tibble(cohorte  = co,
+         variable = vars,
+         media_filtrada = unname(sapply(vars, function(v) mean(f[[v]],  na.rm = TRUE))),
+         media_completa_en_esc_filtradas = unname(sapply(vars, function(v) mean(c_[[v]], na.rm = TRUE))))
+})
+print(verif, n = Inf)
+```
+
 
