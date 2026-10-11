@@ -40,7 +40,6 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```{r}
 
-library(dplyr)
 
 bases <- list(
   CIVED_1999, 
@@ -124,8 +123,6 @@ for (nombre in names(bases)) {
 #### Función Anova Test
 
 ```{r}
-
-library(dplyr)
 
 comparar_pendiente_aleatoria <- function(m_fijo, m_aleat, cohorte, pendiente) {
   ll0 <- as.numeric(logLik(m_fijo))
@@ -249,7 +246,25 @@ if (!dir.exists(ruta_intensidad)) dir.create(ruta_intensidad, recursive = TRUE)
 
 ```
 
+### Función de convergencia entre bases 
+
+```{r}
+revisar_modelos <- function(){
+  nombres <- grep("^M[0-4](_[a-h][12]?)?$", ls(envir=.GlobalEnv), value=TRUE)
+  modelos <- mget(nombres, envir=.GlobalEnv)
+  purrr::imap_dfr(modelos, function(m, nombre){
+    msgs <- unlist(m@optinfo$conv$lme4$messages)
+    tibble::tibble(modelo=nombre, nobs=nobs(m), singular=isSingular(m),
+      aviso=if(is.null(msgs)) "ninguno" else paste(substr(msgs,1,120), collapse=" | "),
+      se_min=round(min(summary(m)$coefficients[, "Std. Error"]), 3)) }) }
+```
+
+```{r}
+ctrl_bobyqa <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+```
+
 ### CIVED 1999
+
 
 ```{r}
 
@@ -257,45 +272,45 @@ if (!dir.exists(ruta_intensidad)) dir.create(ruta_intensidad, recursive = TRUE)
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1 <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + libro | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + nivel_educ | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M2 <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc +
     clima_aula_escuela_gmc + (1 | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc +
     perp_aprendizaje_voto_esc_gmc + (1 | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables de escuela
@@ -303,28 +318,28 @@ M4_a1 <- glmer(
   voto ~ libro * clima_aula_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b1 <- glmer(
   voto ~ nivel_educ * clima_aula_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_a2 <- glmer(
   voto ~ libro * perp_aprendizaje_voto_esc_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b2 <- glmer(
   voto ~ nivel_educ * perp_aprendizaje_voto_esc_gmc +
     libro + Sexo + indice_aula_ind_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables individuales centradas (CWC)
@@ -332,31 +347,36 @@ M4_c1 <- glmer(
   voto ~ libro * indice_aula_ind_cwc +
     nivel_educ + Sexo + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c2 <- glmer(
   voto ~ nivel_educ * indice_aula_ind_cwc +
     libro + Sexo + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_d1 <- glmer(
   voto ~ libro * aprendizaje_voto_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + (1 + libro | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_d2 <- glmer(
   voto ~ nivel_educ * aprendizaje_voto_cwc +
     libro + Sexo + indice_aula_ind_cwc + (1 + nivel_educ | id_colegio),
   data = CIVED_1999,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 ```
+
+```{r}
+print(revisar_modelos(), n = Inf, width = Inf)
+```
+
 
 
 #### Tabla modelo
@@ -446,52 +466,52 @@ anova_CIVED_1999 <- dplyr::bind_rows(
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1 <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M2 <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
     clima_aula_escuela_gmc + (1 | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
     tasa_voto_escuela_gmc + (1 | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_c <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
     tasa_asamblea_escuela_gmc + (1 | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables de escuela
@@ -499,42 +519,42 @@ M4_a1 <- glmer(
   voto ~ libro * clima_aula_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b1 <- glmer(
   voto ~ nivel_educ * clima_aula_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_a2 <- glmer(
   voto ~ libro * tasa_voto_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b2 <- glmer(
   voto ~ nivel_educ * tasa_voto_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c1 <- glmer(
   voto ~ libro * tasa_asamblea_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c2 <- glmer(
   voto ~ nivel_educ * tasa_asamblea_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables individuales centradas (CWC)
@@ -542,44 +562,48 @@ M4_d1 <- glmer(
   voto ~ libro * indice_aula_ind_cwc +
     nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_d2 <- glmer(
   voto ~ nivel_educ * indice_aula_ind_cwc +
     libro + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_e1 <- glmer(
   voto ~ libro * participacion_voto_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_e2 <- glmer(
   voto ~ nivel_educ * participacion_voto_cwc +
     libro + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_f1 <- glmer(
   voto ~ libro * asamblea_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_f2 <- glmer(
   voto ~ nivel_educ * asamblea_cwc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2009,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
+```
+
+```{r}
+print(revisar_modelos(), n = Inf, width = Inf)
 ```
 
 
@@ -675,59 +699,59 @@ anova_ICCS_2009 <- dplyr::bind_rows(
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1 <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M2 <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
     clima_aula_escuela_gmc + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
     tasa_voto_escuela_gmc + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_c <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
     tasa_asamblea_escuela_gmc + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_d <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc +
     perp_aprendizaje_voto_esc_gmc + (1 | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables de escuela
@@ -735,56 +759,56 @@ M4_a1 <- glmer(
   voto ~ libro * clima_aula_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b1 <- glmer(
   voto ~ nivel_educ * clima_aula_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_a2 <- glmer(
   voto ~ libro * tasa_voto_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b2 <- glmer(
   voto ~ nivel_educ * tasa_voto_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c1 <- glmer(
   voto ~ libro * tasa_asamblea_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c2 <- glmer(
   voto ~ nivel_educ * tasa_asamblea_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_d1 <- glmer(
   voto ~ libro * perp_aprendizaje_voto_esc_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_d2 <- glmer(
   voto ~ nivel_educ * perp_aprendizaje_voto_esc_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables individuales centradas (CWC)
@@ -792,59 +816,64 @@ M4_e1 <- glmer(
   voto ~ libro * indice_aula_ind_cwc +
     nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_e2 <- glmer(
   voto ~ nivel_educ * indice_aula_ind_cwc +
     libro + Sexo + participacion_voto_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_f1 <- glmer(
   voto ~ libro * participacion_voto_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_f2 <- glmer(
   voto ~ nivel_educ * participacion_voto_cwc +
     libro + Sexo + indice_aula_ind_cwc + asamblea_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_g1 <- glmer(
   voto ~ libro * asamblea_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + aprendizaje_voto_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_g2 <- glmer(
   voto ~ nivel_educ * asamblea_cwc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + aprendizaje_voto_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_h1 <- glmer(
   voto ~ libro * aprendizaje_voto_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_h2 <- glmer(
   voto ~ nivel_educ * aprendizaje_voto_cwc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = ICCS_2016,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 ```
+
+```{r}
+print(revisar_modelos(), n = Inf, width = Inf)
+```
+
 
 #### Tabla modelos
 
@@ -944,57 +973,62 @@ anova_ICCS_2016 <- dplyr::bind_rows(
 ### PACES 2019
 
 ```{r}
+ctrl_bobyqa <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+```
+
+
+```{r}
 
 
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1 <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M1_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M2 <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_a <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
     clima_aula_escuela_gmc + (1 | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_b <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
     tasa_voto_escuela_gmc + (1 | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M3_c <- glmer(
   voto ~ libro + nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc +
     tasa_asamblea_escuela_gmc + (1 | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables de escuela
@@ -1002,42 +1036,42 @@ M4_a1 <- glmer(
   voto ~ libro * clima_aula_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b1 <- glmer(
   voto ~ nivel_educ * clima_aula_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_a2 <- glmer(
   voto ~ libro * tasa_voto_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_b2 <- glmer(
   voto ~ nivel_educ * tasa_voto_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c1 <- glmer(
   voto ~ libro * tasa_asamblea_escuela_gmc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_c2 <- glmer(
   voto ~ nivel_educ * tasa_asamblea_escuela_gmc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 # Interacciones con variables individuales centradas (CWC)
@@ -1045,46 +1079,49 @@ M4_d1 <- glmer(
   voto ~ libro * indice_aula_ind_cwc +
     nivel_educ + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_d2 <- glmer(
   voto ~ nivel_educ * indice_aula_ind_cwc +
     libro + Sexo + participacion_voto_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_e1 <- glmer(
   voto ~ libro * participacion_voto_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_e2 <- glmer(
   voto ~ nivel_educ * participacion_voto_cwc +
     libro + Sexo + indice_aula_ind_cwc + asamblea_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_f1 <- glmer(
   voto ~ libro * asamblea_cwc +
     nivel_educ + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + libro | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 M4_f2 <- glmer(
   voto ~ nivel_educ * asamblea_cwc +
     libro + Sexo + indice_aula_ind_cwc + participacion_voto_cwc + (1 + nivel_educ | id_colegio),
   data = PACES_2019,
-  family = binomial
+  family = binomial, control = ctrl_bobyqa
 )
 
 ```
 
+```{r}
+print(revisar_modelos(), n = Inf, width = Inf)
+```
 
 #### Tabla modelos
 
