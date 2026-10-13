@@ -28,7 +28,9 @@ Al final hay verificaciones que comparan estos resultados con tus tablas de `tab
 # 1. Configuración
 
 ```{r setup}
-pacman::p_load(tidyverse, lme4, ggeffects, performance, flextable, officer,
+# haven debe estar cargado: las bases traen variables haven_labelled (p. ej. id_colegio) y,
+# sin haven, lme4 no puede convertirlas a factor cuando tidyverse (vctrs) está cargado
+pacman::p_load(tidyverse, haven, lme4, ggeffects, performance, flextable, officer,
                here, scales, patchwork, rvest, xml2)
 
 REESTIMAR <- FALSE      # TRUE = ignora la caché y reestima todos los modelos
@@ -652,7 +654,7 @@ for (coh in cohortes) {
   w <- leer_docx_tabla(f)
   r <- m3_res %>% filter(cohorte == coh) %>% rowwise() %>%
     mutate(pp_doc = suppressWarnings(as.numeric(w[[variable]][w$Modelo == modelo]))) %>% ungroup()
-  anotar(paste("Intensidad Tabla 6 vs docx", coh), all(abs(r$pp - r$pp_doc) <= .051),
+  anotar(paste("Intensidad Tabla 6 vs docx", coh), isTRUE(all(abs(r$pp - r$pp_doc) <= .051)),
          sprintf("%d variables comparadas; m\u00E1x. diferencia %.2f pp", nrow(r), max(abs(r$pp - r$pp_doc), na.rm = TRUE)))
 }
 
