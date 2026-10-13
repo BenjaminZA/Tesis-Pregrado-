@@ -1,0 +1,726 @@
+---
+title: "Descriptivos y bivariados"
+subtitle: "Escuela y desigualdad en la participación política juvenil"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: visual
+---
+
+Este archivo **solo lee** las bases procesadas (`output/data_procesada/proc_<COHORTE>.rds`). No recodifica nada: las únicas variables nuevas (grupos alto/bajo de clima de aula) se crean en memoria, solo para estos productos, y sus puntos de corte quedan documentados en la Tabla A2.
+
+Todas las estimaciones son **ponderadas** (`survey`). Nivel individual: `svydesign(ids = ~id_colegio, weights = ~Peso_est)`. Nivel escuela: una fila por escuela, ponderada con `Peso_esc`. Los productos se guardan en `output/descriptivos/`.
+
+# 1. Configuración
+
+```{r setup}
+pacman::p_load(tidyverse, survey, flextable, officer, here, scales)
+
+options(survey.lonely.psu = "adjust")   # evita errores si un grupo queda con una sola escuela
+
+dir_proc <- here("output", "data_procesada")
+dir_out  <- here("output", "descriptivos")
+dir_dat  <- file.path(dir_out, "datos")      # estimaciones en CSV (respaldo)
+dir.create(dir_dat, showWarnings = FALSE, recursive = TRUE)
+
+cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+etiq     <- c(CIVED_1999 = "CIVED 1999", ICCS_2009 = "ICCS 2009",
+              ICCS_2016 = "ICCS 2016", PACES_2019 = "PACES 2019")
+anio     <- c(CIVED_1999 = 1999, ICCS_2009 = 2009, ICCS_2016 = 2016, PACES_2019 = 2019)
+
+# --- Parámetros de formato ------------------------------------------------
+FUENTE_TABLAS  <- "Times New Roman"
+TAMANO_TABLAS  <- 10          # pt (APA 7 permite tamaños menores en tablas)
+SEP_MILES      <- ","         # separador de miles (el decimal es siempre punto)
+FUENTE_NOTA    <- "Fuente: CIVED 1999, ICCS 2009, ICCS 2016 y PACES 2019."
+
+# --- Columnas (nombres reales de las bases procesadas) ---------------------
+COL <- list(
+  id         = "id_colegio",
+  peso_est   = "Peso_est",
+  peso_esc   = "Peso_esc",
+  voto       = "voto",
+  libro      = "libro",
+  nivel_educ = "nivel_educ",
+  sexo       = "Sexo",                    # 1 = hombre, 0 = mujer
+  clima_ind  = "indice_aula_ind",
+  part_voto  = "participacion_voto",
+  asamblea   = "asamblea",
+  aprend     = "aprendizaje_voto",
+  clima_esc  = "clima_aula_escuela",
+  tasa_voto  = "tasa_voto_escuela",
+  tasa_asam  = "tasa_asamblea_escuela",
+  aprend_esc = "perp_aprendizaje_voto_esc"
+)
+
+# Cobertura esperada (TRUE = la variable existe en la cohorte). Se contrasta
+# con las bases en la sección de verificaciones.
+cobertura_esperada <- tribble(
+  ~variable,    ~CIVED_1999, ~ICCS_2009, ~ICCS_2016, ~PACES_2019,
+  "part_voto",  FALSE,       TRUE,       TRUE,       TRUE,
+  "asamblea",   FALSE,       TRUE,       TRUE,       TRUE,
+  "aprend",     TRUE,        FALSE,      TRUE,       FALSE,
+  "tasa_voto",  FALSE,       TRUE,       TRUE,       TRUE,
+  "tasa_asam",  FALSE,       TRUE,       TRUE,       TRUE,
+  "aprend_esc", TRUE,        FALSE,      TRUE,       FALSE
+)
+
+# N conocidos (filas de cada base procesada) y mínimo de escuelas (de los modelos)
+n_est_esperado <- c(CIVED_1999 = 5777, ICCS_2009 = 5192, ICCS_2016 = 5081, PACES_2019 = 1635)
+n_esc_minimo   <- c(CIVED_1999 = 180,  ICCS_2009 = 176,  ICCS_2016 = 178,  PACES_2019 = 64)
+```
+
+# 2. Carga de bases
+
+```{r carga}
+bases_raw <- map(set_names(cohortes), function(co) {
+  ruta <- file.path(dir_proc, paste0("proc_", co, ".rds"))
+  if (!file.exists(ruta)) stop("No encuentro la base: ", ruta)
+  readRDS(ruta)
+})
+
+# Solo se quita la clase 'haven_labelled' (etiquetas de SPSS/Stata) de las columnas que se usan
+# y se crea 'mujer' (Sexo: 1 = hombre, 0 = mujer). No se recodifica nada más.
+# 'a_numerico' funciona aunque la columna esté etiquetada o guardada como texto, y se
+# detiene si la conversión crearía valores perdidos nuevos.
+a_numerico <- function(x, nombre) {
+  x0 <- x
+  x  <- tryCatch(haven::zap_labels(x), error = function(e) x)
+  r  <- suppressWarnings(as.numeric(unclass(x)))
+  if (sum(is.na(r)) > sum(is.na(x0)))
+    stop("Al convertir '", nombre, "' a numérico se crearon NA nuevos. Clase original: ",
+         paste(class(x0), collapse = "/"), ". Revisa esa columna en la base procesada.")
+  r
+}
+
+preparar <- function(df) {
+  cols <- setdiff(unlist(COL), COL$id)
+  cols <- intersect(cols, names(df))
+  df %>%
+    mutate(across(all_of(cols), ~ a_numerico(.x, cur_column()))) %>%
+    mutate(mujer = if_else(is.na(.data[[COL$sexo]]), NA_real_,
+                           as.numeric(.data[[COL$sexo]] == 0)))
+}
+bases <- map(bases_raw, preparar)
+
+tibble(cohorte = etiq[cohortes],
+       estudiantes = map_int(bases, nrow),
+       escuelas    = map_int(bases, ~ n_distinct(.x[[COL$id]])))
+```
+
+# 3. Funciones
+
+## 3.1 Estimadores ponderados
+
+```{r funciones-estimadores}
+# Diseño a nivel individual (conglomerados = escuelas)
+dis_est <- function(df) {
+  d <- df %>% filter(!is.na(.data[[COL$id]]), !is.na(.data[[COL$peso_est]]))
+  svydesign(ids = as.formula(paste0("~", COL$id)),
+            weights = as.formula(paste0("~", COL$peso_est)), data = d)
+}
+
+# Una fila por escuela. Las variables de escuela vienen repetidas por estudiante.
+colapsar_escuela <- function(df) {
+  vars <- intersect(c(COL$clima_esc, COL$tasa_voto, COL$tasa_asam, COL$aprend_esc,
+                      COL$peso_esc), names(df))
+  df %>% distinct(across(all_of(COL$id)), .keep_all = TRUE) %>%
+    select(all_of(c(COL$id, vars)))
+}
+
+# Proporción (en %) con IC 95% de diseño. Verosimilitud; si falla, logit; si falla, Wald.
+est_prop <- function(des, var) {
+  f <- as.formula(paste0("~", var))
+  res <- tryCatch(svyciprop(f, des, method = "likelihood", na.rm = TRUE),
+                  error = function(e) tryCatch(
+                    svyciprop(f, des, method = "logit", na.rm = TRUE),
+                    error = function(e2) svyciprop(f, des, method = "mean", na.rm = TRUE)))
+  ci <- attr(res, "ci")
+  tibble(est = 100 * as.numeric(res), lo = 100 * ci[[1]], hi = 100 * ci[[2]])
+}
+
+# Media y DE ponderadas (DE poblacional ponderada), con 'escala' opcional (100 = a %)
+est_media_sd <- function(df, var, peso, escala = 1) {
+  x <- df[[var]] * escala; w <- df[[peso]]
+  ok <- !is.na(x) & !is.na(w) & w > 0
+  x <- x[ok]; w <- w[ok]
+  m <- weighted.mean(x, w)
+  tibble(m = m, sd = sqrt(sum(w * (x - m)^2) / sum(w)), n = length(x))
+}
+
+# Media con IC 95% de diseño (para la figura de tendencia)
+est_media_ic <- function(des, var) {
+  f <- as.formula(paste0("~", var))
+  m <- svymean(f, des, na.rm = TRUE)
+  ci <- confint(m, df = degf(des))
+  tibble(est = as.numeric(coef(m)), lo = ci[1, 1], hi = ci[1, 2])
+}
+```
+
+## 3.2 Formato de celdas
+
+```{r funciones-formato}
+fmt_n    <- function(n) formatC(n, format = "d", big.mark = SEP_MILES)
+fmt_prop <- function(e) sprintf("%.1f%% [%.1f, %.1f]", e$est, e$lo, e$hi)
+fmt_msd  <- function(e, dig = 2) sprintf(paste0("%.", dig, "f (%.", dig, "f)"), e$m, e$sd)
+fmt_dif  <- function(e) sprintf("%+.1f [%+.1f, %+.1f]", e$est, e$lo, e$hi)
+
+# TRUE si la variable no existe en la cohorte o está completamente perdida
+sin_variable <- function(df, var) {
+  is.na(var) || !(var %in% names(df)) || all(is.na(df[[var]]))
+}
+```
+
+## 3.3 Grupos alto/bajo por cuantiles ponderados
+
+```{r funciones-cuantiles}
+# Cuantil ponderado: primer valor cuya frecuencia acumulada alcanza p
+cuantil_pond <- function(x, w, p) {
+  ok <- !is.na(x) & !is.na(w) & w > 0
+  x <- x[ok]; w <- w[ok]
+  o <- order(x); x <- x[o]; w <- w[o]
+  x[which(cumsum(w) / sum(w) >= p - 1e-12)[1]]
+}
+
+# k = 2: mediana (Bajo / Alto). k = 3: terciles (Bajo / Medio / Alto).
+# Con empates, para k = 2 se elige entre "x > corte" y "x >= corte" la regla
+# que deja los grupos más cercanos a 50/50.
+agrupar_cuantiles <- function(x, w, k = 2) {
+  etiquetas <- if (k == 2) c("Bajo", "Alto") else c("Bajo", "Medio", "Alto")
+  cortes <- vapply(seq_len(k - 1) / k, function(p) cuantil_pond(x, w, p), numeric(1))
+  asignar <- function(estricto) {
+    if (k == 2) 1 + (if (estricto) x > cortes else x >= cortes)
+    else 1 + (x > cortes[1]) + (x > cortes[2])
+  }
+  g <- asignar(TRUE); regla <- "x > corte"
+  ok <- !is.na(x) & !is.na(w) & w > 0
+  pct <- function(g) tapply(w[ok], factor(g[ok], levels = seq_len(k)), sum) / sum(w[ok])
+  if (k == 2 && abs(pct(asignar(FALSE))[2] - .5) < abs(pct(g)[2] - .5)) {
+    g <- asignar(FALSE); regla <- "x >= corte"
+  }
+  p <- pct(g)
+  if (any(p < ifelse(k == 2, .20, .15), na.rm = TRUE) || anyNA(p))
+    warning("Grupos muy desbalanceados al dividir en ", k, " (", paste(round(100 * p), collapse = "/"),
+            "%): revisar empates en la variable.")
+  list(g = factor(etiquetas[g], levels = etiquetas), cortes = cortes, regla = regla,
+       pct = setNames(100 * as.numeric(p), etiquetas))
+}
+
+# Agrega a cada base los grupos de clima individual y de escuela (en memoria)
+derivar_grupos <- function(df, k) {
+  gi <- agrupar_cuantiles(df[[COL$clima_ind]], df[[COL$peso_est]], k)
+  df[[paste0("clima_ind_g", k)]] <- gi$g
+
+  esc <- df %>% distinct(across(all_of(COL$id)), .keep_all = TRUE) %>%
+    select(all_of(c(COL$id, COL$clima_esc, COL$peso_esc)))
+  ge <- agrupar_cuantiles(esc[[COL$clima_esc]], esc[[COL$peso_esc]], k)
+  esc[[paste0("clima_esc_g", k)]] <- ge$g
+  df <- df %>% left_join(esc %>% select(all_of(c(COL$id, paste0("clima_esc_g", k)))), by = COL$id)
+
+  cortes <- bind_rows(
+    tibble(Nivel = "Individual (estudiantes)", corte = paste(sprintf("%.2f", gi$cortes), collapse = " / "),
+           regla = gi$regla, grupo = names(gi$pct), pct = gi$pct),
+    tibble(Nivel = "Escuela", corte = paste(sprintf("%.2f", ge$cortes), collapse = " / "),
+           regla = ge$regla, grupo = names(ge$pct), pct = ge$pct))
+  list(df = df, cortes = cortes)
+}
+```
+
+## 3.4 Estimaciones bivariadas
+
+```{r funciones-bivariadas}
+# % que espera votar en cada nivel de 'grp' (IC 95%) y diferencia en pp
+# (último nivel - primero) con IC 95% de diseño (regresión lineal con svyglm).
+bivar <- function(df, grp) {
+  if (sin_variable(df, grp)) return(NULL)
+  d <- df %>% filter(!is.na(.data[[grp]]), !is.na(.data[[COL$voto]]),
+                     !is.na(.data[[COL$id]]), !is.na(.data[[COL$peso_est]]))
+  d$grp_ <- if (is.factor(d[[grp]])) droplevels(d[[grp]]) else factor(d[[grp]], levels = sort(unique(d[[grp]])))
+  if (nlevels(d$grp_) < 2) return(NULL)
+  des <- svydesign(ids = as.formula(paste0("~", COL$id)),
+                   weights = as.formula(paste0("~", COL$peso_est)), data = d)
+  niv <- map_dfr(levels(d$grp_), function(l) {
+    sub <- subset(des, grp_ == l)
+    est_prop(sub, COL$voto) %>% mutate(nivel = l, n = nrow(sub),
+                                       n_esc = n_distinct(d[[COL$id]][d$grp_ == l]))
+  })
+  m <- svyglm(as.formula(paste0(COL$voto, " ~ grp_")), des)
+  nm <- paste0("grp_", levels(d$grp_)[nlevels(d$grp_)])
+  ci <- confint(m, df = degf(des))[nm, ]
+  dif <- tibble(est = 100 * unname(coef(m)[nm]), lo = 100 * ci[[1]], hi = 100 * ci[[2]])
+  list(niveles = niv, dif = dif)
+}
+
+# Arma una tabla (filas = variable > nivel > diferencia; columnas = cohortes)
+# 'spec': lista de list(titulo, grp, niveles, etiq_dif)
+armar_tabla_bivar <- function(spec, bases) {
+  filas <- list(); secciones <- integer(0); datos <- list()
+  fila_vacia <- function() setNames(as.list(rep("", length(cohortes))), etiq[cohortes])
+  for (s in spec) {
+    res <- map(bases, ~ bivar(.x, s$grp))
+    secciones <- c(secciones, length(filas) + 1)
+    filas[[length(filas) + 1]] <- c(list(Variable = s$titulo), fila_vacia())
+    for (i in seq_along(s$niveles)) {
+      vals <- map_chr(res, ~ if (is.null(.x)) "N/D" else fmt_prop(.x$niveles[i, ]))
+      filas[[length(filas) + 1]] <- c(list(Variable = s$niveles[i]), setNames(as.list(vals), etiq[cohortes]))
+    }
+    vals <- map_chr(res, ~ if (is.null(.x)) "N/D" else fmt_dif(.x$dif))
+    filas[[length(filas) + 1]] <- c(list(Variable = s$etiq_dif), setNames(as.list(vals), etiq[cohortes]))
+    datos[[length(datos) + 1]] <- imap_dfr(res, function(r, co) {
+      if (is.null(r)) return(NULL)
+      bind_rows(r$niveles %>% mutate(medida = "proporcion"),
+                r$dif %>% mutate(nivel = "diferencia_pp", medida = "diferencia")) %>%
+        mutate(cohorte = co, variable = s$titulo)
+    })
+  }
+  list(tabla = bind_rows(map(filas, as_tibble)), secciones = secciones, datos = bind_rows(datos))
+}
+```
+
+## 3.5 Exportar tablas en formato APA 7 (.docx)
+
+```{r funciones-apa}
+borde <- fp_border(color = "black", width = 1)
+
+# df: data.frame con la primera columna = etiquetas. 'secciones': filas que son
+# títulos de sección (se combinan a lo ancho y van en cursiva).
+tabla_apa_docx <- function(df, num, titulo, nota, archivo, secciones = integer(0),
+                           ancho_col1 = 3.6) {
+  nc <- ncol(df)
+  ft <- flextable(df) %>%
+    font(fontname = FUENTE_TABLAS, part = "all") %>%
+    fontsize(size = TAMANO_TABLAS, part = "all") %>%
+    border_remove() %>%
+    hline_top(border = borde, part = "header") %>%
+    hline_bottom(border = borde, part = "header") %>%
+    hline_bottom(border = borde, part = "body") %>%
+    align(j = 1, align = "left", part = "all") %>%
+    align(j = 2:nc, align = "center", part = "all") %>%
+    valign(valign = "center", part = "all") %>%
+    padding(padding.top = 2, padding.bottom = 2, padding.left = 3, padding.right = 3, part = "all") %>%
+    set_table_properties(layout = "fixed") %>%
+    width(j = 1, width = ancho_col1 / 2.54) %>%
+    width(j = 2:nc, width = (16 - ancho_col1) / (nc - 1) / 2.54)
+  for (i in secciones) {
+    ft <- ft %>% merge_at(i = i, j = 1:nc, part = "body") %>%
+      italic(i = i, j = 1, part = "body") %>% align(i = i, j = 1, align = "left", part = "body")
+  }
+  # Sangría de las filas que no son sección ni encabezado de variable
+  if (length(secciones) > 0)
+    ft <- ft %>% padding(i = setdiff(seq_len(nrow(df)), secciones), j = 1, padding.left = 10, part = "body")
+
+  tx <- function(...) fp_text(font.family = FUENTE_TABLAS, font.size = 12, ...)
+  doc <- read_docx()
+  doc <- body_set_default_section(doc, prop_section(
+    page_size = page_size(orient = "portrait", width = 21 / 2.54, height = 29.7 / 2.54),
+    page_margins = page_mar(top = 2.5 / 2.54, bottom = 2.5 / 2.54, left = 2.5 / 2.54, right = 2.5 / 2.54,
+                            header = 1.25 / 2.54, footer = 1.25 / 2.54, gutter = 0)))
+  doc <- body_add_fpar(doc, fpar(ftext(paste0("Tabla ", num), tx(bold = TRUE))))
+  doc <- body_add_fpar(doc, fpar(ftext(titulo, tx(italic = TRUE))))
+  doc <- body_add_flextable(doc, ft, align = "left")
+  doc <- body_add_fpar(doc, fpar(ftext("Nota. ", fp_text(font.family = FUENTE_TABLAS, font.size = TAMANO_TABLAS, italic = TRUE)),
+                                 ftext(nota, fp_text(font.family = FUENTE_TABLAS, font.size = TAMANO_TABLAS))))
+  print(doc, target = file.path(dir_out, archivo))
+  invisible(ft %>% autofit())
+}
+
+# Misma tabla, versión de pantalla (HTML)
+ver_tabla <- function(df, secciones = integer(0)) {
+  ft <- flextable(df) %>% fontsize(size = 9, part = "all") %>% autofit()
+  for (i in secciones) ft <- ft %>% merge_at(i = i, j = 1:ncol(df), part = "body") %>% italic(i = i, j = 1, part = "body")
+  ft
+}
+```
+
+## 3.6 Gráficos
+
+```{r funciones-graficos}
+tema_tesis <- function() {
+  theme_classic(base_size = 10) +
+    theme(strip.background = element_blank(), strip.text = element_text(face = "bold", size = 10),
+          legend.position = "bottom", legend.title = element_text(size = 10),
+          legend.text = element_text(size = 10), axis.text = element_text(size = 9, colour = "black"),
+          panel.grid.major.y = element_line(colour = "grey90", linewidth = .3))
+}
+# Colores que se distinguen en escala de grises (oscuro / medio) + formas y líneas distintas
+COL_GRUPOS <- c("#1B2A41", "#C8651B", "#7A7A7A")
+
+guardar_fig <- function(p, archivo, alto = 11) {
+  ggsave(file.path(dir_out, archivo), p, width = 16, height = alto, units = "cm", dpi = 300, bg = "white")
+}
+
+# Figura: % que espera votar según libros (pocos/muchos) y clima de escuela (grupos de k)
+fig_origen_clima <- function(bases, k = 2) {
+  grp <- paste0("clima_esc_g", k)
+  est <- imap_dfr(bases, function(df, co) {
+    d <- df %>% filter(!is.na(libro), !is.na(voto), !is.na(.data[[grp]]),
+                       !is.na(.data[[COL$id]]), !is.na(.data[[COL$peso_est]]))
+    d$g_ <- d[[grp]]
+    des <- svydesign(ids = as.formula(paste0("~", COL$id)),
+                     weights = as.formula(paste0("~", COL$peso_est)), data = d)
+    crossing(libro_v = c(0, 1), clima = levels(d[[grp]])) %>%
+      pmap_dfr(function(libro_v, clima) {
+        sub <- subset(des, libro == libro_v & g_ == clima)
+        est_prop(sub, "voto") %>%
+          mutate(cohorte = co, libro = libro_v, clima = clima, n = nrow(sub),
+                 n_esc = n_distinct(d[[COL$id]][d$libro == libro_v & d$g_ == clima]))
+      })
+  }) %>%
+    mutate(cohorte_f = factor(etiq[cohorte], levels = etiq),
+           clima = factor(clima, levels = levels(bases[[1]][[grp]])),
+           libro_f = factor(libro, levels = c(0, 1), labels = c("Pocos libros (bajo)", "Muchos libros (alto)")))
+  lim_inf <- max(0, floor((min(est$lo) - 2) / 10) * 10)
+  dod <- position_dodge(width = .3)
+  p <- ggplot(est, aes(clima, est, colour = libro_f, shape = libro_f, linetype = libro_f, group = libro_f)) +
+    geom_line(position = dod, linewidth = .6) +
+    geom_errorbar(aes(ymin = lo, ymax = hi), width = .12, position = dod, linewidth = .5) +
+    geom_point(position = dod, size = 2.2) +
+    facet_wrap(~ cohorte_f, nrow = 2) +
+    scale_colour_manual(values = COL_GRUPOS[1:2]) +
+    scale_shape_manual(values = c(16, 17)) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    scale_y_continuous(limits = c(lim_inf, 100), labels = function(x) paste0(x, "%")) +
+    labs(x = "Clima de aula de la escuela", y = "Espera votar (%)",
+         colour = NULL, shape = NULL, linetype = NULL) +
+    tema_tesis()
+  list(plot = p, datos = est)
+}
+```
+
+# 4. Preparación de grupos de clima (en memoria)
+
+Criterio: **mediana ponderada dentro de cada cohorte** (Bajo / Alto). A nivel individual se usa `indice_aula_ind` con `Peso_est`; a nivel escuela se usa `clima_aula_escuela` sobre una fila por escuela con `Peso_esc`. Los terciles (Bajo / Medio / Alto) se usan solo como análisis de sensibilidad en el anexo.
+
+```{r grupos}
+g2 <- map(bases, derivar_grupos, k = 2)
+g3 <- map(bases, derivar_grupos, k = 3)
+bases2 <- map(g2, "df")   # con grupos por mediana
+bases3 <- map(g3, "df")   # con grupos por terciles
+
+cortes2 <- imap_dfr(g2, ~ mutate(.x$cortes, cohorte = etiq[.y]))
+cortes3 <- imap_dfr(g3, ~ mutate(.x$cortes, cohorte = etiq[.y]))
+```
+
+# 5. Descriptivos
+
+## Tabla 1. Nivel individual
+
+```{r tabla1}
+spec_t1 <- tribble(
+  ~tipo,     ~etiqueta,                                              ~var,
+  "n",       "N estudiantes",                                        NA,
+  "seccion", "Perfil sociodemográfico",                              NA,
+  "prop",    "Mujeres, % [IC 95%]",                                  "mujer",
+  "seccion", "Variable dependiente",                                 NA,
+  "prop",    "Espera votar, % [IC 95%]",                             COL$voto,
+  "seccion", "Origen socioeconómico",                                NA,
+  "prop",    "Libros en el hogar (categoría alta), % [IC 95%]",      COL$libro,
+  "prop",    "Educación de los padres (universitaria), % [IC 95%]",  COL$nivel_educ,
+  "seccion", "Experiencias escolares (versión individual)",          NA,
+  "msd",     "Clima de aula, M (DE)",                                COL$clima_ind,
+  "prop",    "Participación en votaciones escolares, % [IC 95%]",    COL$part_voto,
+  "prop",    "Participación en asambleas, % [IC 95%]",               COL$asamblea,
+  "prop",    "Aprendizaje sobre el voto, % [IC 95%]",                COL$aprend
+)
+
+celda_t1 <- function(df, tipo, var) {
+  if (tipo == "seccion") return("")
+  if (tipo == "n") return(fmt_n(nrow(df)))
+  if (sin_variable(df, var)) return("N/D")
+  if (tipo == "prop") return(fmt_prop(est_prop(dis_est(df), var)))
+  if (tipo == "msd")  return(fmt_msd(est_media_sd(df, var, COL$peso_est)))
+}
+
+tabla1 <- tibble(Variable = spec_t1$etiqueta)
+for (co in cohortes)
+  tabla1[[etiq[co]]] <- pmap_chr(list(spec_t1$tipo, spec_t1$var), function(t, v) celda_t1(bases[[co]], t, v))
+sec1 <- which(spec_t1$tipo == "seccion")
+
+nota_t1 <- paste0("Estimaciones ponderadas con el ponderador de estudiantes (Peso_est); los intervalos de confianza (IC) al 95% ",
+  "consideran el diseño muestral (conglomerados por escuela). Los porcentajes se presentan con su IC entre corchetes y las variables ",
+  "continuas como media (desviación estándar, DE). N = casos de la base procesada, sin ponderar. ",
+  "Libros en el hogar y educación de los padres están dicotomizadas (alto y universitaria, respectivamente). ",
+  "N/D = variable no disponible en la cohorte. ", FUENTE_NOTA)
+
+t1_ft <- tabla_apa_docx(tabla1, 1, "Estadísticos descriptivos, nivel individual", nota_t1,
+                        "tabla1_nivel_individual.docx", sec1)
+ver_tabla(tabla1, sec1)
+```
+
+## Tabla 2. Nivel escuela
+
+```{r tabla2}
+esc <- map(bases, colapsar_escuela)
+
+spec_t2 <- tribble(
+  ~tipo,   ~etiqueta,                                                       ~var,           ~escala, ~dig,
+  "n",     "N escuelas",                                                    NA,             1,       2,
+  "msd",   "Clima de aula, M (DE)",                                         COL$clima_esc,  1,       2,
+  "msd",   "Participación en votaciones (tasa por escuela, %), M (DE)",     COL$tasa_voto,  100,     1,
+  "msd",   "Participación en asambleas (tasa por escuela, %), M (DE)",      COL$tasa_asam,  100,     1,
+  "msd",   "Aprendizaje sobre el voto (% de estudiantes por escuela), M (DE)", COL$aprend_esc, 100,   1
+)
+
+celda_t2 <- function(e, tipo, var, escala, dig) {
+  if (tipo == "n") return(fmt_n(nrow(e)))
+  if (sin_variable(e, var)) return("N/D")
+  fmt_msd(est_media_sd(e, var, COL$peso_esc, escala), dig)
+}
+tabla2 <- tibble(Variable = spec_t2$etiqueta)
+for (co in cohortes)
+  tabla2[[etiq[co]]] <- pmap_chr(list(spec_t2$tipo, spec_t2$var, spec_t2$escala, spec_t2$dig),
+                                 function(t, v, s, d) celda_t2(esc[[co]], t, v, s, d))
+
+nota_t2 <- paste0("Estimaciones ponderadas con el ponderador de escuela (Peso_esc), sobre una fila por escuela. ",
+  "M = media; DE = desviación estándar. Las tasas son el porcentaje de estudiantes de cada escuela que declara la experiencia. ",
+  "N/D = variable no disponible en la cohorte. ", FUENTE_NOTA)
+
+t2_ft <- tabla_apa_docx(tabla2, 2, "Estadísticos descriptivos, nivel escuela", nota_t2, "tabla2_nivel_escuela.docx")
+ver_tabla(tabla2)
+```
+
+## Figura 0 (opcional). Tendencia de la expectativa de voto y del clima de aula
+
+```{r figura0}
+tend <- imap_dfr(bases, function(df, co) {
+  des <- dis_est(df)
+  bind_rows(
+    est_prop(des, COL$voto) %>% mutate(panel = "Espera votar (%)"),
+    est_media_ic(des, COL$clima_ind) %>% mutate(panel = "Clima de aula (media del índice)")
+  ) %>% mutate(cohorte = co, anio = anio[co])
+}) %>% mutate(panel = factor(panel, levels = c("Espera votar (%)", "Clima de aula (media del índice)")))
+
+# Eje x categórico (cohortes equiespaciadas) para evitar que las etiquetas se pisen.
+# El panel de % usa un eje de 50 a 100 para no exagerar diferencias pequeñas.
+tend <- tend %>% mutate(cohorte_f = factor(etiq[cohorte], levels = etiq))
+limites_voto <- tibble(panel = factor("Espera votar (%)", levels = levels(tend$panel)),
+                       cohorte_f = factor(etiq[1], levels = etiq), est = c(50, 100))
+fig0 <- ggplot(tend, aes(cohorte_f, est, group = 1)) +
+  geom_blank(data = limites_voto) +
+  geom_line(colour = COL_GRUPOS[1], linewidth = .6) +
+  geom_errorbar(aes(ymin = lo, ymax = hi), width = .15, colour = COL_GRUPOS[1], linewidth = .5) +
+  geom_point(colour = COL_GRUPOS[1], size = 2.2) +
+  facet_wrap(~ panel, scales = "free_y") +
+  scale_x_discrete(labels = c("CIVED\n1999", "ICCS\n2009", "ICCS\n2016", "PACES\n2019")) +
+  labs(x = NULL, y = NULL) + tema_tesis()
+guardar_fig(fig0, "figura0_tendencia_voto_clima.png", alto = 8)
+write_csv(tend, file.path(dir_dat, "datos_figura0_tendencia.csv"))
+fig0
+```
+
+# 6. Bivariados
+
+## Tabla 3. Expectativa de voto según origen socioeconómico
+
+```{r tabla3}
+spec_t3 <- list(
+  list(titulo = "Libros en el hogar", grp = COL$libro,
+       niveles = c("Pocos libros (bajo)", "Muchos libros (alto)"), etiq_dif = "Diferencia, pp (alto − bajo)"),
+  list(titulo = "Educación de los padres", grp = COL$nivel_educ,
+       niveles = c("No universitaria", "Universitaria"), etiq_dif = "Diferencia, pp (universitaria − no)")
+)
+r3 <- armar_tabla_bivar(spec_t3, bases)
+
+nota_t3 <- paste0("Porcentaje de estudiantes que espera votar, con IC 95% entre corchetes. Estimaciones ponderadas (Peso_est) ",
+  "con IC que consideran el diseño muestral (conglomerados por escuela). La diferencia se expresa en puntos porcentuales (pp) ",
+  "con su IC 95%. ", FUENTE_NOTA)
+t3_ft <- tabla_apa_docx(r3$tabla, 3, "Porcentaje que espera votar según origen socioeconómico", nota_t3,
+                        "tabla3_voto_por_origen.docx", r3$secciones)
+write_csv(r3$datos, file.path(dir_dat, "datos_tabla3.csv"))
+ver_tabla(r3$tabla, r3$secciones)
+```
+
+## Tabla 4. Expectativa de voto según experiencias escolares
+
+```{r tabla4}
+spec_t4 <- list(
+  list(titulo = "Clima de aula (individual)", grp = "clima_ind_g2",
+       niveles = c("Clima bajo", "Clima alto"), etiq_dif = "Diferencia, pp (alto − bajo)"),
+  list(titulo = "Participación en votaciones escolares", grp = COL$part_voto,
+       niveles = c("No participó", "Participó"), etiq_dif = "Diferencia, pp (participó − no)"),
+  list(titulo = "Participación en asambleas", grp = COL$asamblea,
+       niveles = c("No participó", "Participó"), etiq_dif = "Diferencia, pp (participó − no)"),
+  list(titulo = "Aprendizaje sobre el voto", grp = COL$aprend,
+       niveles = c("No aprendió", "Aprendió"), etiq_dif = "Diferencia, pp (aprendió − no)")
+)
+r4 <- armar_tabla_bivar(spec_t4, bases2)
+
+nota_t4 <- paste0("Porcentaje de estudiantes que espera votar, con IC 95% entre corchetes. Estimaciones ponderadas (Peso_est) ",
+  "con IC que consideran el diseño muestral (conglomerados por escuela). La diferencia se expresa en puntos porcentuales (pp) ",
+  "con su IC 95%. Clima alto/bajo: división en la mediana ponderada del índice de clima de aula dentro de cada cohorte ",
+  "(puntos de corte en la Tabla A2). N/D = variable no disponible en la cohorte. ", FUENTE_NOTA)
+t4_ft <- tabla_apa_docx(r4$tabla, 4, "Porcentaje que espera votar según experiencias escolares", nota_t4,
+                        "tabla4_voto_por_experiencias.docx", r4$secciones)
+write_csv(r4$datos, file.path(dir_dat, "datos_tabla4.csv"))
+ver_tabla(r4$tabla, r4$secciones)
+```
+
+## Figura 1. Origen × clima de la escuela (versión descriptiva de la interacción)
+
+Porcentaje que espera votar entre estudiantes con pocos y muchos libros, en escuelas de clima bajo y alto. Si las dos líneas son paralelas, la brecha de origen es similar en ambos tipos de escuela.
+
+```{r figura1}
+f1 <- fig_origen_clima(bases2, k = 2)
+guardar_fig(f1$plot, "figura1_voto_origen_clima.png", alto = 11)
+write_csv(f1$datos, file.path(dir_dat, "datos_figura1.csv"))
+f1$plot
+```
+
+# 7. Anexos
+
+## Tabla A1. Correlaciones entre variables de escuela
+
+```{r tablaA1}
+vars_corr <- c(COL$clima_esc, COL$tasa_voto, COL$tasa_asam, COL$aprend_esc)
+nom_corr  <- c("Clima de aula", "Tasa de votaciones", "Tasa de asambleas", "Aprendizaje sobre el voto")
+
+cor_pond <- function(x, y, w) {
+  ok <- complete.cases(x, y, w) & w > 0
+  if (sum(ok) < 3) return(NA_real_)
+  cov.wt(cbind(x[ok], y[ok]), wt = w[ok] / sum(w[ok]), cor = TRUE)$cor[1, 2]
+}
+
+filas <- list(); sec_a1 <- integer(0)
+for (co in cohortes) {
+  e <- esc[[co]]
+  sec_a1 <- c(sec_a1, length(filas) + 1)
+  filas[[length(filas) + 1]] <- c(list(Variable = paste0(etiq[co], " (", nrow(e), " escuelas)")),
+                                  setNames(as.list(rep("", 4)), nom_corr))
+  for (i in seq_along(vars_corr)) {
+    vals <- map_chr(seq_along(vars_corr), function(j) {
+      if (sin_variable(e, vars_corr[i]) || sin_variable(e, vars_corr[j])) return("N/D")
+      if (i == j) return("1.00")
+      sprintf("%.2f", cor_pond(e[[vars_corr[i]]], e[[vars_corr[j]]], e[[COL$peso_esc]]))
+    })
+    filas[[length(filas) + 1]] <- c(list(Variable = nom_corr[i]), setNames(as.list(vals), nom_corr))
+  }
+}
+tablaA1 <- bind_rows(map(filas, as_tibble))
+nota_a1 <- paste0("Correlaciones de Pearson ponderadas con el ponderador de escuela (Peso_esc), sobre una fila por escuela. ",
+  "N/D = variable no disponible en la cohorte. ", FUENTE_NOTA)
+tA1_ft <- tabla_apa_docx(tablaA1, "A1", "Correlaciones entre las variables de escuela, por cohorte", nota_a1,
+                         "tablaA1_correlaciones_escuela.docx", sec_a1, ancho_col1 = 4)
+ver_tabla(tablaA1, sec_a1)
+```
+
+## Tabla A2. Puntos de corte de clima de aula (mediana ponderada)
+
+```{r tablaA2}
+tablaA2 <- cortes2 %>%
+  select(cohorte, Nivel, corte, regla, grupo, pct) %>%
+  pivot_wider(names_from = grupo, values_from = pct) %>%
+  transmute(Cohorte = cohorte, Nivel = Nivel, `Punto de corte (mediana)` = corte,
+            `Grupo alto` = ifelse(regla == "x > corte", "> corte", "≥ corte"),
+            `% bajo` = sprintf("%.1f", Bajo), `% alto` = sprintf("%.1f", Alto))
+nota_a2 <- paste0("La mediana es ponderada: Peso_est para el clima individual (índice de clima de aula) y Peso_esc para el clima de escuela ",
+  "(una fila por escuela). Con valores repetidos se eligió la regla (> o ≥ el corte) que deja los grupos más cercanos a 50/50. ",
+  "Los porcentajes son ponderados. ", FUENTE_NOTA)
+tA2_ft <- tabla_apa_docx(tablaA2, "A2", "Puntos de corte para clasificar el clima de aula en bajo y alto", nota_a2,
+                         "tablaA2_cortes_clima.docx", ancho_col1 = 3)
+ver_tabla(tablaA2)
+```
+
+## Tabla A3 y Figura A1. Sensibilidad con terciles de clima
+
+```{r anexoA3}
+spec_a3 <- list(
+  list(titulo = "Clima de aula (individual)", grp = "clima_ind_g3",
+       niveles = c("Clima bajo", "Clima medio", "Clima alto"), etiq_dif = "Diferencia, pp (alto − bajo)")
+)
+rA3 <- armar_tabla_bivar(spec_a3, bases3)
+nota_a3 <- paste0("Terciles ponderados del índice de clima de aula (Peso_est) dentro de cada cohorte. ",
+  "Porcentaje que espera votar, con IC 95% entre corchetes; diferencia en puntos porcentuales (pp) entre el tercil alto y el bajo. ",
+  FUENTE_NOTA)
+tA3_ft <- tabla_apa_docx(rA3$tabla, "A3", "Porcentaje que espera votar según terciles de clima de aula", nota_a3,
+                         "tablaA3_clima_terciles.docx", rA3$secciones)
+ver_tabla(rA3$tabla, rA3$secciones)
+
+fA1 <- fig_origen_clima(bases3, k = 3)
+guardar_fig(fA1$plot, "figuraA1_voto_origen_clima_terciles.png", alto = 11)
+write_csv(fA1$datos, file.path(dir_dat, "datos_figuraA1.csv"))
+fA1$plot
+```
+
+# 8. Verificaciones
+
+```{r verificaciones}
+# 1) N de estudiantes y escuelas
+chk_n <- tibble(
+  cohorte = etiq[cohortes],
+  n_est = map_int(bases, nrow), n_est_esperado = n_est_esperado[cohortes],
+  n_esc = map_int(bases, ~ n_distinct(.x[[COL$id]])), n_esc_minimo = n_esc_minimo[cohortes]) %>%
+  mutate(`N estudiantes` = ifelse(n_est == n_est_esperado, "OK", "REVISAR"),
+         `N escuelas` = ifelse(n_esc >= n_esc_minimo, "OK", "REVISAR"))
+
+# 2) Cobertura de variables vs. la esperada
+cob_real <- imap_dfr(COL[cobertura_esperada$variable], function(v, nm)
+  tibble(variable = nm, !!!setNames(map_lgl(bases, ~ !sin_variable(.x, v)), cohortes)))
+chk_cob <- all.equal(as.data.frame(cob_real), as.data.frame(cobertura_esperada), check.attributes = FALSE)
+
+# 3) Variables binarias solo 0/1
+bin_vars <- c(COL$voto, COL$libro, COL$nivel_educ, COL$sexo, COL$part_voto, COL$asamblea, COL$aprend)
+chk_bin <- imap_dfr(bases, function(d, co) {
+  tibble(cohorte = etiq[co],
+         no_binarias = paste(keep(intersect(bin_vars, names(d)), ~ !all(d[[.x]] %in% c(0, 1, NA))), collapse = ", "))
+})
+
+# 4) Ponderadores: Peso_esc constante dentro de escuela y con variación entre escuelas
+chk_pesos <- imap_dfr(bases, function(d, co) {
+  por_esc <- d %>% group_by(across(all_of(COL$id))) %>%
+    summarise(k = n_distinct(.data[[COL$peso_esc]]), clima_k = n_distinct(.data[[COL$clima_esc]]), .groups = "drop")
+  tibble(cohorte = etiq[co],
+         peso_esc_valores_distintos = n_distinct(d[[COL$peso_esc]]),
+         peso_esc_constante_en_escuela = all(por_esc$k <= 1),
+         clima_esc_constante_en_escuela = all(por_esc$clima_k <= 1),
+         peso_est_perdidos = sum(is.na(d[[COL$peso_est]])),
+         peso_esc_perdidos = sum(is.na(d[[COL$peso_esc]])))
+}) %>% mutate(`Peso_esc corregido` = ifelse(peso_esc_valores_distintos > 1, "OK", "REVISAR (constante)"),
+         `Pesos completos` = ifelse(peso_est_perdidos == 0 & peso_esc_perdidos == 0, "OK", "REVISAR (hay pesos perdidos)"))
+
+# 5) Ninguna celda vacía en las tablas (las filas de sección se omiten)
+sin_vacias <- function(tb, sec = integer(0)) {
+  x <- tb[setdiff(seq_len(nrow(tb)), sec), -1]
+  m <- as.matrix(x); !any(is.na(m) | m == "")
+}
+chk_celdas <- tibble(
+  tabla = c("1", "2", "3", "4", "A1", "A2", "A3"),
+  sin_celdas_vacias = c(sin_vacias(tabla1, sec1), sin_vacias(tabla2), sin_vacias(r3$tabla, r3$secciones),
+                        sin_vacias(r4$tabla, r4$secciones), sin_vacias(tablaA1, sec_a1),
+                        sin_vacias(tablaA2), sin_vacias(rA3$tabla, rA3$secciones)))
+
+# 6) Archivos generados
+esperados <- c("tabla1_nivel_individual.docx", "tabla2_nivel_escuela.docx", "figura0_tendencia_voto_clima.png",
+               "tabla3_voto_por_origen.docx", "tabla4_voto_por_experiencias.docx", "figura1_voto_origen_clima.png",
+               "tablaA1_correlaciones_escuela.docx", "tablaA2_cortes_clima.docx", "tablaA3_clima_terciles.docx",
+               "figuraA1_voto_origen_clima_terciles.png")
+chk_arch <- tibble(archivo = esperados, existe = file.exists(file.path(dir_out, esperados)))
+
+chk_n
+cob_real
+isTRUE(chk_cob)
+chk_bin
+chk_pesos
+chk_celdas
+chk_arch
+
+problemas <- c(
+  if (any(chk_n$`N estudiantes` != "OK")) "N de estudiantes distinto del esperado",
+  if (any(chk_n$`N escuelas` != "OK")) "N de escuelas menor al mínimo esperado",
+  if (!isTRUE(chk_cob)) "cobertura de variables distinta de la esperada",
+  if (any(chk_bin$no_binarias != "")) "hay variables binarias con valores distintos de 0/1",
+  if (any(chk_pesos$`Peso_esc corregido` != "OK")) "Peso_esc constante: falta la corrección WGTFAC1 x WGTADJ1(S)",
+  if (any(chk_pesos$`Pesos completos` != "OK")) "hay estudiantes sin Peso_est o Peso_esc (se excluyen de las estimaciones)",
+  if (!all(chk_celdas$sin_celdas_vacias)) "hay celdas vacías en alguna tabla",
+  if (!all(chk_arch$existe)) "faltan archivos de salida")
+if (length(problemas) > 0) {
+  warning("VERIFICACIONES CON PROBLEMAS: ", paste(problemas, collapse = "; "))
+  cat("\n**REVISAR:**", paste(problemas, collapse = "; "), "\n")
+} else cat("\n**Todas las verificaciones pasaron.**\n")
+```

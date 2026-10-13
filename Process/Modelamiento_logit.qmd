@@ -39,6 +39,27 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 
 ```{r}
+library(dplyr); library(here)
+cohortes <- c("CIVED_1999","ICCS_2009","ICCS_2016","PACES_2019")
+bases <- lapply(setNames(cohortes, cohortes), function(co)
+  readRDS(here("output","data_procesada", paste0("proc_", co, ".rds"))))
+
+lapply(bases, names)   # 1) nombres de columnas
+
+purrr::imap_dfr(bases, ~ tibble(                          # 2) N y pesos
+  cohorte = .y, n_est = nrow(.x), n_esc = n_distinct(.x$id_colegio),
+  peso_est_min = min(.x$Peso_est, na.rm = TRUE), peso_est_max = max(.x$Peso_est, na.rm = TRUE),
+  peso_esc_distintos = n_distinct(.x$Peso_esc),
+  peso_esc_min = min(.x$Peso_esc, na.rm = TRUE), peso_esc_max = max(.x$Peso_esc, na.rm = TRUE)))
+
+purrr::iwalk(bases, function(d, n) {                       # 3) codificaciones
+  cat("\n==", n, "==\n")
+  for (v in c("Sexo","libro","nivel_educ","voto")) if (v %in% names(d)) {
+    cat(v, "\n"); print(table(d[[v]], useNA = "ifany")); print(attr(d[[v]], "labels")) } })
+```
+
+
+```{r}
 
 
 bases <- list(
