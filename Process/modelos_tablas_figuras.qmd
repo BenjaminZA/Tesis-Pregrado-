@@ -16,10 +16,10 @@ editor: visual
 
 Este archivo produce, en formato APA 7 (Word), las tablas y la figura de **modelos** del cuerpo de la tesis:
 
-- **Tabla 5**: M2 por cohorte (OR, IC 95% y estadísticos de ajuste).
-- **Tabla 6**: M3, una variable de escuela a la vez (OR, intensidad en puntos porcentuales y reducción de τ00).
-- **Tabla 7**: matriz de las 48 interacciones de M4 (origen × variable de escuela o individual).
-- **Figura 2**: probabilidades predichas de la interacción libros × clima de aula (y su versión con educación de los padres para el anexo).
+-   **Tabla 5**: M2 por cohorte (OR, IC 95% y estadísticos de ajuste).
+-   **Tabla 6**: M3, una variable de escuela a la vez (OR, intensidad en puntos porcentuales y reducción de τ00).
+-   **Tabla 7**: matriz de las 48 interacciones de M4 (origen × variable de escuela o individual).
+-   **Figura 2**: probabilidades predichas de la interacción libros × clima de aula (y su versión con educación de los padres para el anexo).
 
 **Cómo funciona (opción híbrida con caché).** Este archivo **no modifica** `Modelamiento_logit.qmd` ni las bases. Estima solo los modelos que necesita (M0, M2, M3 y M4; no necesita M1, M1_a ni M1_b) con **exactamente la misma especificación** (`glmer`, `bobyqa`, `maxfun = 2e5`, sin ponderadores) y los guarda en `output/modelos_rds/modelos_<COHORTE>.rds`. Las veces siguientes los lee desde ahí, y solo reestima un modelo si cambió su fórmula o el número de filas de la base. Para forzar la reestimación completa, cambia `REESTIMAR` a `TRUE`.
 
@@ -191,7 +191,7 @@ map_dfr(MODELOS, ~ attr(.x, "estado")) %>% count(cohorte, estado) %>% print(n = 
 
 ## 2.3 Revisión de los modelos (convergencia y ajuste singular)
 
-Misma lógica que `revisar_modelos()` (los avisos de "boundary (singular) fit" se informan aparte, en la columna `singular`), más el criterio de singularidad usado en las notas de la Tabla 7: `isSingular()`, **o** |ρ| ≥ .99, **o** varianza de la pendiente < .01.
+Misma lógica que `revisar_modelos()` (los avisos de "boundary (singular) fit" se informan aparte, en la columna `singular`), más el criterio de singularidad usado en las notas de la Tabla 7: `isSingular()`, **o** \|ρ\| ≥ .99, **o** varianza de la pendiente \< .01.
 
 ```{r revision}
 es_singular <- function(m) {
@@ -218,7 +218,7 @@ if (any(info_modelos$aviso != "ninguno"))
 
 ## 2.4 Extracción de coeficientes
 
-OR = exp(coeficiente). Intervalo de confianza de Wald al 95%. Las estrellas salen del p de Wald (z), igual que `tab_model` (`*` p < .05, `**` p < .01, `***` p < .001).
+OR = exp(coeficiente). Intervalo de confianza de Wald al 95%. Las estrellas salen del p de Wald (z), igual que `tab_model` (`*` p \< .05, `**` p \< .01, `***` p \< .001).
 
 ```{r coeficientes}
 estrellas <- function(p) case_when(p < .001 ~ "***", p < .01 ~ "**", p < .05 ~ "*", TRUE ~ "")
@@ -413,9 +413,9 @@ ft6
 
 # 5. Tabla 7. Matriz de interacciones (M4)
 
-Cada celda es el **OR del término de interacción** (origen × variable de escuela o individual), con estrellas del p de Wald, más un símbolo de lectura: **=** (p ≥ .05, sin evidencia de moderación), **C** (p < .05 y OR < 1: *compensación*) o **A** (p < .05 y OR > 1: *amplificación*). La lectura C/A supone que el valor 1 del origen representa más recursos (muchos libros, educación universitaria de los padres).
+Cada celda es el **OR del término de interacción** (origen × variable de escuela o individual), con estrellas del p de Wald, más un símbolo de lectura: **=** (p ≥ .05, sin evidencia de moderación), **C** (p \< .05 y OR \< 1: *compensación*) o **A** (p \< .05 y OR \> 1: *amplificación*). La lectura C/A supone que el valor 1 del origen representa más recursos (muchos libros, educación universitaria de los padres).
 
-Marcas con superíndice: **a** = ajuste singular (ρ ≈ ±1 o varianza de la pendiente ≈ 0); **b** = la interacción es significativa por Wald pero **no** por la prueba de razón de verosimilitud (LRT) contra el modelo sin interacción (se calcula solo para las celdas con p < .05).
+Marcas con superíndice: **a** = ajuste singular (ρ ≈ ±1 o varianza de la pendiente ≈ 0); **b** = la interacción es significativa por Wald pero **no** por la prueba de razón de verosimilitud (LRT) contra el modelo sin interacción (se calcula solo para las celdas con p \< .05).
 
 ```{r tabla7}
 lrt_interaccion <- function(m, termino) {

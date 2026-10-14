@@ -15,7 +15,7 @@ pacman::p_load(tidyverse,
                haven, 
                car, 
                magrittr,
-               psych,
+               psych,d
                readxl, 
                fastDummies,
                stargazer,
@@ -860,9 +860,3 @@ ggplot(clima_escuela, aes(x = base, y = promedio)) +
   theme_minimal(base_size = 13)
 
 ```
-
-
-
-
-
-
