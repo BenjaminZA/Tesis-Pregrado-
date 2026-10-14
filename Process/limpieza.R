@@ -26,6 +26,15 @@ ICCS_2016 <- read_sas("input/data/isgchlc3.sas7bdat")
 
 PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+posoct.xlsx")
 
+frecuencias <- table(PACES_2019$FECHA2)
+view(frecuencias)
+
+
+PACES_2019 <- PACES_2019 %>% 
+  filter(!as.Date(FECHA2) %in% as.Date(c("2019-10-20", "2019-10-29", "2019-11-05",
+                                         "2019-11-07", "2019-11-11", "2019-11-12", 
+                                         "2019-11-14", "2019-12-04", "2019-12-05")))
+
 
 #Recodificación-----------------------------------------------------------------
 
