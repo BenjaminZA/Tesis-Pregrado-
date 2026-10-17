@@ -16,10 +16,10 @@ editor: visual
 
 Este archivo produce, en formato APA 7 (Word), las tablas y la figura de **modelos** del cuerpo de la tesis:
 
-- **Tabla 5**: M2 por cohorte (OR con IC 95%, efecto marginal promedio en puntos porcentuales y estadísticos de ajuste).
-- **Tabla 6**: M3, una variable de escuela a la vez (OR con IC 95%, efecto marginal promedio en puntos porcentuales y reducción de τ00).
-- **Tabla 7**: matriz de las 48 interacciones de M4 (origen × variable de escuela o individual).
-- **Figura 2**: probabilidades predichas de la interacción libros × clima de aula (y su versión con educación de los padres para el anexo).
+-   **Tabla 5**: M2 por cohorte (OR con IC 95%, efecto marginal promedio en puntos porcentuales y estadísticos de ajuste).
+-   **Tabla 6**: M3, una variable de escuela a la vez (OR con IC 95%, efecto marginal promedio en puntos porcentuales y reducción de τ00).
+-   **Tabla 7**: matriz de las 48 interacciones de M4 (origen × variable de escuela o individual).
+-   **Figura 2**: probabilidades predichas de la interacción libros × clima de aula (y su versión con educación de los padres para el anexo).
 
 **Cómo funciona (opción híbrida con caché).** Este archivo **no modifica** `Modelamiento_logit.qmd` ni las bases. Estima solo los modelos que necesita (M0, M2, M3 y M4; no necesita M1, M1_a ni M1_b) con **exactamente la misma especificación** (`glmer`, `bobyqa`, `maxfun = 2e5`, sin ponderadores) y los guarda en `output/modelos_rds/modelos_<COHORTE>.rds`. Las veces siguientes los lee desde ahí, y solo reestima un modelo si cambió su fórmula o el número de filas de la base. Para forzar la reestimación completa, cambia `REESTIMAR` a `TRUE`.
 
@@ -32,6 +32,16 @@ Al final hay verificaciones que comparan estos resultados con tus tablas de `tab
 # sin haven, lme4 no puede convertirlas a factor cuando tidyverse (vctrs) está cargado
 pacman::p_load(tidyverse, haven, lme4, ggeffects, marginaleffects, performance, flextable, officer,
                here, scales, patchwork, rvest, xml2)
+
+# Si en tu sesión hay otros paquetes cargados (p. ej. magrittr, MASS, plyr), pueden "tapar" estas funciones
+# (error típico: "1 argumento dado a 'names<-', que requiere 2" = set_names de magrittr). Se fijan explícitamente:
+set_names <- purrr::set_names
+select    <- dplyr::select
+filter    <- dplyr::filter
+rename    <- dplyr::rename
+mutate    <- dplyr::mutate
+summarise <- dplyr::summarise
+map       <- purrr::map
 
 REESTIMAR <- FALSE      # TRUE = ignora la caché y reestima todos los modelos
 
@@ -191,7 +201,7 @@ map_dfr(MODELOS, ~ attr(.x, "estado")) %>% count(cohorte, estado) %>% print(n = 
 
 ## 2.3 Revisión de los modelos (convergencia y ajuste singular)
 
-Misma lógica que `revisar_modelos()` (los avisos de "boundary (singular) fit" se informan aparte, en la columna `singular`), más el criterio de singularidad usado en las notas de la Tabla 7: `isSingular()`, **o** |ρ| ≥ .99, **o** varianza de la pendiente < .01.
+Misma lógica que `revisar_modelos()` (los avisos de "boundary (singular) fit" se informan aparte, en la columna `singular`), más el criterio de singularidad usado en las notas de la Tabla 7: `isSingular()`, **o** \|ρ\| ≥ .99, **o** varianza de la pendiente \< .01.
 
 ```{r revision}
 es_singular <- function(m) {
@@ -218,7 +228,7 @@ if (any(info_modelos$aviso != "ninguno"))
 
 ## 2.4 Extracción de coeficientes
 
-OR = exp(coeficiente). Intervalo de confianza de Wald al 95%. Las estrellas salen del p de Wald (z), igual que `tab_model` (`*` p < .05, `**` p < .01, `***` p < .001).
+OR = exp(coeficiente). Intervalo de confianza de Wald al 95%. Las estrellas salen del p de Wald (z), igual que `tab_model` (`*` p \< .05, `**` p \< .01, `***` p \< .001).
 
 ```{r coeficientes}
 estrellas <- function(p) case_when(p < .001 ~ "***", p < .01 ~ "**", p < .05 ~ "*", TRUE ~ "")
@@ -448,9 +458,9 @@ ft6
 
 # 5. Tabla 7. Matriz de interacciones (M4)
 
-Cada celda es el **OR del término de interacción** (origen × variable de escuela o individual), con estrellas del p de Wald, más un símbolo de lectura: **=** (p ≥ .05, sin evidencia de moderación), **C** (p < .05 y OR < 1: *compensación*) o **A** (p < .05 y OR > 1: *amplificación*). La lectura C/A supone que el valor 1 del origen representa más recursos (muchos libros, educación universitaria de los padres).
+Cada celda es el **OR del término de interacción** (origen × variable de escuela o individual), con estrellas del p de Wald, más un símbolo de lectura: **=** (p ≥ .05, sin evidencia de moderación), **C** (p \< .05 y OR \< 1: *compensación*) o **A** (p \< .05 y OR \> 1: *amplificación*). La lectura C/A supone que el valor 1 del origen representa más recursos (muchos libros, educación universitaria de los padres).
 
-Marcas con superíndice: **a** = ajuste singular (ρ ≈ ±1 o varianza de la pendiente ≈ 0); **b** = la interacción es significativa por Wald pero **no** por la prueba de razón de verosimilitud (LRT) contra el modelo sin interacción (se calcula solo para las celdas con p < .05).
+Marcas con superíndice: **a** = ajuste singular (ρ ≈ ±1 o varianza de la pendiente ≈ 0); **b** = la interacción es significativa por Wald pero **no** por la prueba de razón de verosimilitud (LRT) contra el modelo sin interacción (se calcula solo para las celdas con p \< .05).
 
 ```{r tabla7}
 lrt_interaccion <- function(m, termino) {
@@ -567,7 +577,10 @@ fig_interaccion <- function(origen, etiquetas_grupo, titulo_leyenda, archivo, al
     m <- MODELOS[[coh]][[nm]]
     p <- as.data.frame(ggpredict(m, terms = c(paste0(v, " [n=", n_puntos, "]"), paste0(origen, " [0,1]")))) %>%
       transmute(cohorte = coh, fila = filas$fila[k], modelo = nm, x, predicted, conf.low, conf.high,
-                grupo = factor(as.character(group), levels = c("0", "1"), labels = etiquetas_grupo))
+                # el grupo se asigna por posición (1.º = valor 0, 2.º = valor 1): sirve tanto si la variable es numérica 0/1
+      # como si es factor (p. ej. "no"/"si") o viene con etiquetas
+      grupo = factor(if (is.factor(group)) as.integer(group) else as.integer(factor(group)),
+                     levels = 1:2, labels = etiquetas_grupo))
     fr <- m@frame                                  # datos efectivamente usados en ese modelo
     xs <- if (filas$fila[k] == "esc") fr[[v]][!duplicated(fr$id_colegio)] else fr[[v]]
     list(pred = p, rug = tibble(cohorte = coh, fila = filas$fila[k], x = as.numeric(xs)))
@@ -600,12 +613,42 @@ fig_interaccion <- function(origen, etiquetas_grupo, titulo_leyenda, archivo, al
     theme(legend.position = "bottom")
   ggsave(file.path(dir_out, archivo), fig, width = 16, height = alto, units = "cm", dpi = 300, bg = "white")
   guardar_csv(pred, sub("\\.png$", ".csv", archivo))
-  list(plot = fig, datos = pred)
+  list(plot = fig, datos = pred, rugs = rugs)
 }
 
 fig2 <- fig_interaccion("libro", c("Pocos libros", "Muchos libros"), "Libros en el hogar",
                         "figura2_interaccion_libros_clima.png")
 fig2$plot
+```
+
+## 6.0 Panel suelto: CIVED 1999, libros × clima de aula individual
+
+Solo el panel de CIVED 1999 de la fila inferior de la Figura 2 (se guarda aparte, a 300 dpi).
+
+```{r figura2_cived_individual}
+coh_p <- "CIVED_1999"
+pd_p  <- fig2$datos %>% filter(cohorte == coh_p, fila == "ind")
+rg_p  <- fig2$rugs  %>% filter(cohorte == coh_p, fila == "ind")
+ylim_p <- c(max(0, floor(min(pd_p$conf.low) * 20) / 20), min(1, ceiling(max(pd_p$conf.high) * 20) / 20))
+
+fig2_cived_ind <- ggplot(pd_p, aes(x, predicted, colour = grupo, linetype = grupo, fill = grupo)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .15, colour = NA) +
+  geom_line(linewidth = .8) +
+  geom_rug(data = rg_p, aes(x = x), inherit.aes = FALSE, sides = "b", alpha = .05, linewidth = .2,
+           length = unit(.03, "npc")) +
+  scale_colour_manual(values = COL_GRUPOS[c(2, 1)]) + scale_fill_manual(values = COL_GRUPOS[c(2, 1)]) +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  scale_x_continuous(breaks = scales::breaks_pretty(n = 5)) +
+  scale_y_continuous(limits = ylim_p, labels = scales::label_percent(accuracy = 1)) +
+  labs(title = "CIVED 1999",
+       x = "Clima de aula individual\n(centrado en la media de la escuela)",
+       y = "Probabilidad predicha de\nesperar votar",
+       colour = "Libros en el hogar", fill = "Libros en el hogar", linetype = "Libros en el hogar") +
+  tema_tesis() + theme(plot.title = element_text(face = "bold", size = 10, hjust = .5))
+
+ggsave(file.path(dir_out, "figura2_CIVED1999_libros_clima_individual.png"), fig2_cived_ind,
+       width = 12.5, height = 9.5, units = "cm", dpi = 300, bg = "white")
+fig2_cived_ind
 ```
 
 ## 6.1 Versión para el anexo: educación de los padres

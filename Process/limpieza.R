@@ -30,13 +30,13 @@ frecuencias <- table(PACES_2019$FECHA2)
 view(frecuencias)
 
 
-PACES_2019 <- PACES_2019 %>% 
-  filter(!as.Date(FECHA2) %in% as.Date(c("2019-10-20", "2019-10-29", "2019-11-05",
-                                         "2019-11-07", "2019-11-11", "2019-11-12", 
-                                         "2019-11-14", "2019-12-04", "2019-12-05")))
+#PACES_2019 <- PACES_2019 %>% 
+  #filter(!as.Date(FECHA2) %in% as.Date(c("2019-10-20", "2019-10-29", "2019-11-05",
+                                         #"2019-11-07", "2019-11-11", "2019-11-12", 
+                                         #"2019-11-14", "2019-12-04", "2019-12-05")))
 
-frecuencias <- table(PACES_2019$FECHA2)
-view(frecuencias)
+#frecuencias <- table(PACES_2019$FECHA2)
+#view(frecuencias)
 
 #Recodificación-----------------------------------------------------------------
 
