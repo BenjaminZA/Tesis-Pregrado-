@@ -16,21 +16,21 @@ editor: visual
 
 Este archivo produce, en formato APA 7 (Word), las tablas y la figura de **modelos** del cuerpo de la tesis:
 
--   **Tabla 5**: M2 por cohorte (OR, IC 95% y estadísticos de ajuste).
--   **Tabla 6**: M3, una variable de escuela a la vez (OR, intensidad en puntos porcentuales y reducción de τ00).
--   **Tabla 7**: matriz de las 48 interacciones de M4 (origen × variable de escuela o individual).
--   **Figura 2**: probabilidades predichas de la interacción libros × clima de aula (y su versión con educación de los padres para el anexo).
+- **Tabla 5**: M2 por cohorte (OR con IC 95%, efecto marginal promedio en puntos porcentuales y estadísticos de ajuste).
+- **Tabla 6**: M3, una variable de escuela a la vez (OR con IC 95%, efecto marginal promedio en puntos porcentuales y reducción de τ00).
+- **Tabla 7**: matriz de las 48 interacciones de M4 (origen × variable de escuela o individual).
+- **Figura 2**: probabilidades predichas de la interacción libros × clima de aula (y su versión con educación de los padres para el anexo).
 
 **Cómo funciona (opción híbrida con caché).** Este archivo **no modifica** `Modelamiento_logit.qmd` ni las bases. Estima solo los modelos que necesita (M0, M2, M3 y M4; no necesita M1, M1_a ni M1_b) con **exactamente la misma especificación** (`glmer`, `bobyqa`, `maxfun = 2e5`, sin ponderadores) y los guarda en `output/modelos_rds/modelos_<COHORTE>.rds`. Las veces siguientes los lee desde ahí, y solo reestima un modelo si cambió su fórmula o el número de filas de la base. Para forzar la reestimación completa, cambia `REESTIMAR` a `TRUE`.
 
-Al final hay verificaciones que comparan estos resultados con tus tablas de `tab_model` y de intensidad (carpeta `output/Modelos_logit/`).
+Al final hay verificaciones que comparan estos resultados con tus tablas de `tab_model` (carpeta `output/Modelos_logit/`) y comprueban que el signo de cada efecto marginal coincida con el del OR.
 
 # 1. Configuración
 
 ```{r setup}
 # haven debe estar cargado: las bases traen variables haven_labelled (p. ej. id_colegio) y,
 # sin haven, lme4 no puede convertirlas a factor cuando tidyverse (vctrs) está cargado
-pacman::p_load(tidyverse, haven, lme4, ggeffects, performance, flextable, officer,
+pacman::p_load(tidyverse, haven, lme4, ggeffects, marginaleffects, performance, flextable, officer,
                here, scales, patchwork, rvest, xml2)
 
 REESTIMAR <- FALSE      # TRUE = ignora la caché y reestima todos los modelos
@@ -39,7 +39,7 @@ dir_proc <- here::here("output", "data_procesada")
 dir_rds  <- here::here("output", "modelos_rds")           # caché de modelos
 dir_out  <- here::here("output", "modelos_escrito")       # productos para la tesis
 dir_dat  <- file.path(dir_out, "datos")                   # tablas en CSV (respaldo)
-dir_tab  <- here::here("output", "Modelos_logit")         # tab_model e intensidad (solo para verificar)
+dir_tab  <- here::here("output", "Modelos_logit")         # tab_model (solo para verificar)
 for (d in c(dir_rds, dir_out, dir_dat)) dir.create(d, showWarnings = FALSE, recursive = TRUE)
 
 cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
@@ -191,7 +191,7 @@ map_dfr(MODELOS, ~ attr(.x, "estado")) %>% count(cohorte, estado) %>% print(n = 
 
 ## 2.3 Revisión de los modelos (convergencia y ajuste singular)
 
-Misma lógica que `revisar_modelos()` (los avisos de "boundary (singular) fit" se informan aparte, en la columna `singular`), más el criterio de singularidad usado en las notas de la Tabla 7: `isSingular()`, **o** \|ρ\| ≥ .99, **o** varianza de la pendiente \< .01.
+Misma lógica que `revisar_modelos()` (los avisos de "boundary (singular) fit" se informan aparte, en la columna `singular`), más el criterio de singularidad usado en las notas de la Tabla 7: `isSingular()`, **o** |ρ| ≥ .99, **o** varianza de la pendiente < .01.
 
 ```{r revision}
 es_singular <- function(m) {
@@ -218,7 +218,7 @@ if (any(info_modelos$aviso != "ninguno"))
 
 ## 2.4 Extracción de coeficientes
 
-OR = exp(coeficiente). Intervalo de confianza de Wald al 95%. Las estrellas salen del p de Wald (z), igual que `tab_model` (`*` p \< .05, `**` p \< .01, `***` p \< .001).
+OR = exp(coeficiente). Intervalo de confianza de Wald al 95%. Las estrellas salen del p de Wald (z), igual que `tab_model` (`*` p < .05, `**` p < .01, `***` p < .001).
 
 ```{r coeficientes}
 estrellas <- function(p) case_when(p < .001 ~ "***", p < .01 ~ "**", p < .05 ~ "*", TRUE ~ "")
@@ -246,8 +246,9 @@ r2_marg <- imap_dfr(MODELOS, function(lista, coh)
 fmt2     <- function(x) sprintf("%.2f", x)
 fmt_sc   <- function(x, d = 2) sub("^(-?)0\\.", "\\1.", sprintf(paste0("%.", d, "f"), x))   # sin cero inicial (ICC, R², p)
 fmt_n    <- function(x) formatC(x, format = "d", big.mark = SEP_MILES)
-fmt_pp   <- function(x) ifelse(is.na(x), ND, paste0(ifelse(x > 0, "+", ifelse(x < 0, "−", "")), sprintf("%.1f", abs(x))))
-txt_or   <- function(or, lo, hi, est_p) paste0(fmt2(or), est_p, "\n[", fmt2(lo), ", ", fmt2(hi), "]")
+fmt_ame  <- function(x) { x <- round(x, 1); x[!is.na(x) & x == 0] <- 0; ifelse(is.na(x), ND, sub("^-", "\u2212", sprintf("%.1f", x))) }   # pp con 1 decimal, signo menos tipográfico
+txt_or   <- function(or, lo, hi, est_p) paste0(fmt2(or), est_p, " [", fmt2(lo), ", ", fmt2(hi), "]")
+txt_ame  <- function(a, lo, hi) paste0(fmt_ame(a), " [", fmt_ame(lo), ", ", fmt_ame(hi), "]")
 
 borde <- fp_border(color = "black", width = 1)
 borde_fino <- fp_border(color = "black", width = .5)
@@ -299,9 +300,37 @@ guardar_docx_apa <- function(ft, num, titulo, nota, archivo, notas_sup = NULL, n
 guardar_csv <- function(df, archivo) write_csv(df, file.path(dir_dat, archivo))
 ```
 
+## 2.6 Efectos marginales promedio (AME)
+
+El **AME** (efecto marginal promedio) es el cambio promedio en la probabilidad predicha de esperar votar, en **puntos porcentuales**, calculado con `marginaleffects::avg_slopes()` y **solo efectos fijos** (`re.form = NA`, intercepto aleatorio en 0), promediado sobre los estudiantes de la muestra de cada modelo. En las variables dicotómicas es el contraste 0 → 1; en las continuas, el cambio **por unidad** de la variable (por punto de la escala de clima; por 10 puntos porcentuales en las tasas y el aprendizaje de la escuela, que ya vienen reescalados). El IC 95% se calcula con el método delta.
+
+`avg_slopes()` falla con variables `haven_labelled`, así que se le pasa una copia de los datos del propio modelo **sin las etiquetas** (los valores no cambian; solo se usa para predecir).
+
+```{r ame}
+datos_modelo <- function(m) {
+  d <- m@frame
+  d[] <- lapply(d, function(x) if (inherits(x, "haven_labelled")) as.numeric(haven::zap_labels(x)) else x)
+  d
+}
+
+ame_modelo <- function(m, variables = NULL) {
+  a <- as.data.frame(avg_slopes(m, variables = variables, newdata = datos_modelo(m), re.form = NA))
+  tibble(termino = a$term, ame = 100 * a$estimate, ame_lo = 100 * a$conf.low, ame_hi = 100 * a$conf.high)
+}
+
+ame_m2 <- imap_dfr(MODELOS, ~ ame_modelo(.x[["M2"]]) %>% mutate(cohorte = .y, modelo = "M2"))
+ame_m3 <- imap_dfr(MODELOS, function(lista, coh) {
+  spec <- especificacion[[coh]] %>% filter(bloque == "M3")
+  pmap_dfr(list(spec$modelo, spec$variable), function(nm, v)
+    ame_modelo(lista[[nm]], variables = v) %>% mutate(cohorte = coh, modelo = nm))
+})
+ame <- bind_rows(ame_m2, ame_m3)
+guardar_csv(ame, "ame_M2_M3.csv")
+```
+
 # 3. Tabla 5. Modelo con experiencias escolares individuales (M2)
 
-Una fila por variable; en cada celda, el OR con estrellas y, debajo, el IC de Wald al 95%. Los estadísticos de ajuste usan M2, salvo el **ICC, que sale del modelo nulo (M0)**.
+Una fila por variable. Cada celda tiene **dos líneas**: la primera es el OR con estrellas y su IC de Wald al 95%; la segunda es el **AME en puntos porcentuales** con su IC 95% (el intercepto no tiene AME). Los estadísticos de ajuste usan M2 (el ICC del modelo nulo se informa en la Tabla 6).
 
 ```{r tabla5}
 vars_t5 <- c("libro", "nivel_educ", "Sexo", "indice_aula_ind_cwc", "participacion_voto_cwc",
@@ -309,7 +338,10 @@ vars_t5 <- c("libro", "nivel_educ", "Sexo", "indice_aula_ind_cwc", "participacio
 
 celda_m2 <- function(coh, v) {
   r <- coefs %>% filter(cohorte == coh, modelo == "M2", termino == v)
-  if (nrow(r) == 0) ND else txt_or(r$or, r$lo, r$hi, r$est_p)
+  if (nrow(r) == 0) return(ND)
+  a <- ame %>% filter(cohorte == coh, modelo == "M2", termino == v)
+  l1 <- txt_or(r$or, r$lo, r$hi, r$est_p)
+  if (nrow(a) == 0) l1 else paste0(l1, "\n", txt_ame(a$ame, a$ame_lo, a$ame_hi))
 }
 t5_vars <- tibble(Variable = unname(ETIQ_VAR[vars_t5])) %>%
   bind_cols(map_dfc(set_names(cohortes, etiq[cohortes]), ~ map_chr(vars_t5, function(v) celda_m2(.x, v))))
@@ -317,10 +349,10 @@ t5_vars <- tibble(Variable = unname(ETIQ_VAR[vars_t5])) %>%
 pie <- function(f) map_chr(cohortes, f)
 m2_info <- info_modelos %>% filter(modelo == "M2")
 t5_pie <- tibble(
-  Variable = c("τ₀₀ (M2)", "ICC (M0)", "N estudiantes (M2)", "N escuelas (M2)", "R² marginal (M2)"))
+  Variable = c("τ₀₀ (M2)", "N estudiantes (M2)", "N escuelas (M2)", "R² marginal (M2)"))
 t5_pie <- bind_cols(t5_pie, map_dfc(set_names(cohortes, etiq[cohortes]), function(coh) {
   mi <- m2_info %>% filter(cohorte == coh)
-  c(fmt2(mi$tau00), fmt_sc(icc_nulo$icc[icc_nulo$cohorte == coh]), fmt_n(mi$nobs), fmt_n(mi$n_esc),
+  c(fmt2(mi$tau00), fmt_n(mi$nobs), fmt_n(mi$n_esc),
     fmt_sc(r2_marg$r2m[r2_marg$cohorte == coh]))
 }))
 
@@ -328,7 +360,7 @@ tabla5 <- bind_rows(t5_vars, tibble(Variable = "Estadísticos de ajuste"), t5_pi
 tabla5[tabla5$Variable == "Estadísticos de ajuste", -1] <- ""
 i_sec5 <- nrow(t5_vars) + 1
 
-anchos5 <- c(5.2, rep(2.7, 4))
+anchos5 <- c(3.2, rep(3.2, 4))
 ft5 <- flextable(tabla5) %>%
   aplicar_estilo_apa(anchos5) %>%
   merge_at(i = i_sec5, j = 1:5, part = "body") %>%
@@ -337,29 +369,24 @@ ft5 <- flextable(tabla5) %>%
 
 nota5 <- paste0(
   "Razones de momios (OR) de modelos logísticos multinivel (estudiantes en escuelas) con intercepto aleatorio y sin ponderadores; ",
-  "la variable dependiente es esperar votar (1 = sí). Entre corchetes, intervalo de confianza de Wald al 95%. ",
+  "la variable dependiente es esperar votar (1 = sí). En cada celda, la primera línea muestra el OR con su intervalo de confianza de Wald al 95% entre corchetes; ",
+  "la segunda, el efecto marginal promedio (AME) en puntos porcentuales con su intervalo de confianza al 95% (método delta) entre corchetes. ",
+  "El AME es el cambio promedio en la probabilidad predicha de esperar votar, calculado solo con efectos fijos (intercepto aleatorio en 0) y promediado sobre los estudiantes del modelo: ",
+  "en las variables dicotómicas es el contraste de 0 a 1 y en las continuas el cambio por unidad (por punto de la escala de clima y de las demás variables centradas). ",
   "Libros en el hogar (muchos = 1), educación de los padres (universitaria = 1) y sexo (hombre = 1) son dicotómicas. ",
   "cwc = variable centrada en la media de su escuela. τ₀₀ = varianza del intercepto aleatorio; ",
-  "ICC = τ₀₀ / (τ₀₀ + π²/3), calculado con el modelo nulo (M0, todos los casos disponibles); ",
   "R² marginal según Nakagawa y Schielzeth. M2 excluye los casos con datos perdidos en las experiencias escolares. ",
   "N/D = variable no disponible en la cohorte.")
 guardar_docx_apa(ft5, 5, "Modelo con experiencias escolares individuales (M2), por cohorte", nota5, "tabla5_M2_por_cohorte.docx")
-guardar_csv(coefs %>% filter(modelo == "M2"), "tabla5_M2_coeficientes.csv")
+guardar_csv(coefs %>% filter(modelo == "M2") %>% left_join(ame %>% filter(modelo == "M2"), by = c("cohorte", "modelo", "termino")), "tabla5_M2_coeficientes.csv")
 ft5
 ```
 
 # 4. Tabla 6. Variables de escuela (M3)
 
-Cada variable de escuela se agrega **de a una** a M2. Por variable se informan: OR con IC de Wald; **intensidad** (diferencia en puntos porcentuales de la probabilidad predicha entre el mínimo y el máximo observados, con las demás variables en su media, mismo criterio de tus tablas de intensidad); y **reducción porcentual de τ00** respecto de M2.
+Cada variable de escuela se agrega **de a una** a M2. Por variable se informan: en una celda de dos líneas, el OR con IC de Wald y el **AME en puntos porcentuales** con su IC 95% (por punto de clima; por 10 puntos porcentuales en tasas y aprendizaje); y la **reducción porcentual de τ00** respecto de M2. Al pie se informa el **ICC del modelo nulo (M0)** de cada cohorte.
 
 ```{r tabla6}
-# Mismo cálculo que tus tablas de intensidad (efecto_pp de Modelamiento_logit.qmd)
-efecto_pp <- function(modelo, variable) {
-  pred <- tryCatch(ggpredict(modelo, terms = paste0(variable, " [minmax]")), error = function(e) NULL)
-  if (is.null(pred) || nrow(pred) < 2) return(NA_real_)
-  round((pred$predicted[2] - pred$predicted[1]) * 100, 1)
-}
-
 vars_esc_todas <- VIAS %>% filter(estrategia == "Escuela") %>% pull(variable)
 
 m3_res <- imap_dfr(MODELOS, function(lista, coh) {
@@ -369,39 +396,47 @@ m3_res <- imap_dfr(MODELOS, function(lista, coh) {
     r <- coefs %>% filter(cohorte == coh, modelo == nm, termino == v)
     tau3 <- info_modelos$tau00[info_modelos$cohorte == coh & info_modelos$modelo == nm]
     tibble(cohorte = coh, modelo = nm, variable = v, or = r$or, lo = r$lo, hi = r$hi, est_p = r$est_p,
-           p = r$p, pp = efecto_pp(lista[[nm]], v), red_tau = 100 * (tau_m2 - tau3) / tau_m2)
+           p = r$p, red_tau = 100 * (tau_m2 - tau3) / tau_m2)
   })
-})
+}) %>%
+  left_join(ame, by = c("cohorte", "modelo", "variable" = "termino"))
 
 celda6 <- function(coh, v, que) {
   r <- m3_res %>% filter(cohorte == coh, variable == v)
   if (nrow(r) == 0) return(ND)
   switch(que,
-         or  = txt_or(r$or, r$lo, r$hi, r$est_p),
-         pp  = fmt_pp(r$pp),
+         or  = paste0(txt_or(r$or, r$lo, r$hi, r$est_p), "\n", txt_ame(r$ame, r$ame_lo, r$ame_hi)),
          red = ifelse(is.na(r$red_tau), ND, sprintf("%.0f", r$red_tau)))
 }
 filas6 <- map_dfr(vars_esc_todas, function(v) {
   bind_rows(
     tibble(Variable = ETIQ_VAR[[v]], !!!set_names(rep("", 4), etiq[cohortes])),
-    tibble(Variable = "OR [IC 95%]",             !!!set_names(map_chr(cohortes, celda6, v = v, que = "or"),  etiq[cohortes])),
-    tibble(Variable = "Intensidad (pp)",         !!!set_names(map_chr(cohortes, celda6, v = v, que = "pp"),  etiq[cohortes])),
+    tibble(Variable = "OR [IC 95%]\nAME en pp [IC 95%]", !!!set_names(map_chr(cohortes, celda6, v = v, que = "or"),  etiq[cohortes])),
     tibble(Variable = "Reducción de τ₀₀ (%)", !!!set_names(map_chr(cohortes, celda6, v = v, que = "red"), etiq[cohortes])))
 })
-tabla6 <- filas6
-sec6 <- which(tabla6$Variable %in% ETIQ_VAR[vars_esc_todas])
+# Pie: ICC del modelo nulo (M0)
+fila_icc6 <- tibble(Variable = "ICC (M0)", !!!set_names(map_chr(cohortes, function(coh) fmt_sc(icc_nulo$icc[icc_nulo$cohorte == coh])), etiq[cohortes]))
+fila_sec6 <- tibble(Variable = "Estadísticos de ajuste", !!!set_names(rep("", 4), etiq[cohortes]))
+tabla6 <- bind_rows(filas6, fila_sec6, fila_icc6)
+sec6_vars <- which(tabla6$Variable %in% ETIQ_VAR[vars_esc_todas])
+i_sec6_pie <- which(tabla6$Variable == "Estadísticos de ajuste")
+sec6 <- c(sec6_vars, i_sec6_pie)
 
-anchos6 <- c(5.2, rep(2.7, 4))
+anchos6 <- c(3.6, rep(3.1, 4))
 ft6 <- flextable(tabla6) %>% aplicar_estilo_apa(anchos6)
 for (i in sec6) ft6 <- ft6 %>% merge_at(i = i, j = 1:5, part = "body") %>% italic(i = i, j = 1, part = "body")
 ft6 <- ft6 %>% padding(i = setdiff(seq_len(nrow(tabla6)), sec6), j = 1, padding.left = 10, part = "body") %>%
   hline(i = sec6[-1] - 1, border = borde_fino, part = "body")
+# la fila de ICC va sin sangría (es un estadístico de la cohorte, no de una variable)
+ft6 <- ft6 %>% padding(i = i_sec6_pie + 1, j = 1, padding.left = 0, part = "body")
 
 nota6 <- paste0(
-  "Cada variable de escuela se incorpora por separado a M2 (modelos M3). OR con intervalo de confianza de Wald al 95% entre corchetes. ",
-  "Intensidad: diferencia en puntos porcentuales de la probabilidad predicha de esperar votar entre el mínimo y el máximo ",
-  "observados de la variable, con las demás variables en su media y solo efectos fijos. ",
+  "Cada variable de escuela se incorpora por separado a M2 (modelos M3). En cada celda, la primera línea muestra el OR con su intervalo de confianza de Wald al 95% entre corchetes; ",
+  "la segunda, el efecto marginal promedio (AME) en puntos porcentuales con su intervalo de confianza al 95% (método delta) entre corchetes. ",
+  "El AME es el cambio promedio en la probabilidad predicha de esperar votar, calculado solo con efectos fijos (intercepto aleatorio en 0) y promediado sobre los estudiantes del modelo, ",
+  "por unidad de la variable: por punto de la escala de clima y por cada 10 puntos porcentuales en las tasas y el aprendizaje de la escuela. ",
   "Reducción de τ₀₀ = (τ₀₀ de M2 − τ₀₀ de M3) / τ₀₀ de M2 × 100; un valor negativo indica aumento. ",
+  "ICC = τ₀₀ / (τ₀₀ + π²/3), calculado con el modelo nulo (M0, sin predictores, todos los casos disponibles de la cohorte). ",
   "gmc = variable centrada en la media general; las tasas y el aprendizaje de la escuela están expresados por cada 10 puntos porcentuales. ",
   "N/D = variable no disponible en la cohorte.")
 guardar_docx_apa(ft6, 6, "Variables de escuela agregadas a M2 (modelos M3), por cohorte", nota6, "tabla6_M3_escuela.docx")
@@ -409,13 +444,13 @@ guardar_csv(m3_res, "tabla6_M3_escuela.csv")
 ft6
 ```
 
-*Si la tabla te parece muy larga*: la alternativa es una versión con solo OR e intensidad (sin IC ni reducción de τ00) y llevar la reducción de τ00 a una nota. Dímelo y la cambio.
+*Si las celdas de dos líneas te parecen muy cargadas*: la alternativa es separar el AME en una fila propia debajo del OR, como en la versión anterior de la tabla. Dímelo y la cambio.
 
 # 5. Tabla 7. Matriz de interacciones (M4)
 
-Cada celda es el **OR del término de interacción** (origen × variable de escuela o individual), con estrellas del p de Wald, más un símbolo de lectura: **=** (p ≥ .05, sin evidencia de moderación), **C** (p \< .05 y OR \< 1: *compensación*) o **A** (p \< .05 y OR \> 1: *amplificación*). La lectura C/A supone que el valor 1 del origen representa más recursos (muchos libros, educación universitaria de los padres).
+Cada celda es el **OR del término de interacción** (origen × variable de escuela o individual), con estrellas del p de Wald, más un símbolo de lectura: **=** (p ≥ .05, sin evidencia de moderación), **C** (p < .05 y OR < 1: *compensación*) o **A** (p < .05 y OR > 1: *amplificación*). La lectura C/A supone que el valor 1 del origen representa más recursos (muchos libros, educación universitaria de los padres).
 
-Marcas con superíndice: **a** = ajuste singular (ρ ≈ ±1 o varianza de la pendiente ≈ 0); **b** = la interacción es significativa por Wald pero **no** por la prueba de razón de verosimilitud (LRT) contra el modelo sin interacción (se calcula solo para las celdas con p \< .05).
+Marcas con superíndice: **a** = ajuste singular (ρ ≈ ±1 o varianza de la pendiente ≈ 0); **b** = la interacción es significativa por Wald pero **no** por la prueba de razón de verosimilitud (LRT) contra el modelo sin interacción (se calcula solo para las celdas con p < .05).
 
 ```{r tabla7}
 lrt_interaccion <- function(m, termino) {
@@ -583,7 +618,7 @@ figA2$plot
 
 # 7. Verificaciones
 
-Este bloque compara lo producido con tus tablas de `tab_model` y de intensidad en `output/Modelos_logit/` y revisa que no falte nada. Si no encuentra esos archivos, la verificación correspondiente queda como **OMITIDA** (no es un error).
+Este bloque compara lo producido con tus tablas de `tab_model` en `output/Modelos_logit/`, comprueba que el signo de cada AME coincida con el del OR y revisa que no falte nada. Si no encuentra esos archivos, la verificación correspondiente queda como **OMITIDA** (no es un error).
 
 ```{r verificaciones}
 verif <- tibble(verificacion = character(), estado = character(), detalle = character())
@@ -639,24 +674,31 @@ for (coh in cohortes) {
   aj <- info_modelos %>% filter(cohorte == coh) %>% inner_join(tm$ajuste, by = "modelo") %>%
     left_join(icc_nulo, by = "cohorte")
   m0 <- aj %>% filter(modelo == "M0"); m2 <- aj %>% filter(modelo == "M2")
-  ok_aj <- abs(m2$tau00 - m2$tau00_tab) <= .0051 && abs(m0$icc - m0$icc_tab) <= .0051 &&
+  ok_aj <- abs(m2$tau00 - m2$tau00_tab) <= .0051 &&
     m2$nobs == m2$nobs_tab && m2$n_esc == m2$nesc_tab &&
     (is.na(m2$r2m_tab) || abs(r2_marg$r2m[r2_marg$cohorte == coh] - m2$r2m_tab) <= .0006)
   anotar(paste("Pie de Tabla 5 vs tab_model", coh), ok_aj,
-         sprintf("tau00 M2 %.2f/%.2f; ICC M0 %.2f/%.2f; N M2 %d/%d; escuelas %d/%d", m2$tau00, m2$tau00_tab,
-                 m0$icc, m0$icc_tab, m2$nobs, m2$nobs_tab, m2$n_esc, m2$nesc_tab))
+         sprintf("tau00 M2 %.2f/%.2f; N M2 %d/%d; escuelas %d/%d", m2$tau00, m2$tau00_tab,
+                 m2$nobs, m2$nobs_tab, m2$n_esc, m2$nesc_tab))
+  # ICC de la Tabla 6: la celda publicada (texto) frente al ICC que informa tab_model para M0
+  icc_celda <- tabla6[[etiq[coh]]][tabla6$Variable == "ICC (M0)"]
+  anotar(paste("ICC (M0) en Tabla 6 vs tab_model", coh), isTRUE(abs(as.numeric(icc_celda) - m0$icc_tab) <= .0051),
+         sprintf("celda %s; tab_model %s", icc_celda, fmt_sc(m0$icc_tab)))
 }
 
-# --- (2) Intensidad (pp) de la Tabla 6 vs tus tablas de intensidad ----------
-for (coh in cohortes) {
-  f <- file.path(dir_tab, paste0("intensidad_", coh, "_simples.docx"))
-  if (!file.exists(f)) { anotar(paste("intensidad", coh), NA, paste("no encontrado:", basename(f))); next }
-  w <- leer_docx_tabla(f)
-  r <- m3_res %>% filter(cohorte == coh) %>% rowwise() %>%
-    mutate(pp_doc = suppressWarnings(as.numeric(w[[variable]][w$Modelo == modelo]))) %>% ungroup()
-  anotar(paste("Intensidad Tabla 6 vs docx", coh), isTRUE(all(abs(r$pp - r$pp_doc) <= .051)),
-         sprintf("%d variables comparadas; m\u00E1x. diferencia %.2f pp", nrow(r), max(abs(r$pp - r$pp_doc), na.rm = TRUE)))
-}
+# --- (2) AME: el signo de cada AME coincide con el del OR correspondiente ------
+# (Tabla 5: todas las variables de M2 salvo el intercepto; Tabla 6: la variable de escuela de cada M3)
+coef_t56 <- coefs %>% filter(termino != "(Intercept)", modelo == "M2" | grepl("^M3_", modelo)) %>%
+  filter(modelo == "M2" | termino %in% vars_esc_todas)
+chk_ame <- coef_t56 %>% left_join(ame, by = c("cohorte", "modelo", "termino")) %>%
+  mutate(ok_signo = sign(ame) == sign(log(or)), ok_ic = ame_lo <= ame & ame <= ame_hi)
+anotar("Cada coeficiente de las Tablas 5 y 6 tiene AME", !anyNA(chk_ame$ame),
+       sprintf("%d coeficientes; %d sin AME", nrow(chk_ame), sum(is.na(chk_ame$ame))))
+anotar("Signo del AME = signo del OR (Tablas 5 y 6)", isTRUE(all(chk_ame$ok_signo)),
+       sprintf("%d comparados; %d con signo distinto", nrow(chk_ame), sum(!chk_ame$ok_signo, na.rm = TRUE)))
+anotar("El AME queda dentro de su IC 95%", isTRUE(all(chk_ame$ok_ic)))
+if (any(!chk_ame$ok_signo, na.rm = TRUE))
+  print(chk_ame %>% filter(!ok_signo) %>% select(cohorte, modelo, termino, or, ame, ame_lo, ame_hi))
 
 # --- (3) Cobertura: modelos, interacciones y celdas ---------------------------
 esperados <- c(CIVED_1999 = 8, ICCS_2009 = 12, ICCS_2016 = 16, PACES_2019 = 12)
