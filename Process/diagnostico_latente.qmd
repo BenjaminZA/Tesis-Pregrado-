@@ -1,0 +1,390 @@
+---
+title: "Diagnóstico: expectativa de voto como variable latente"
+subtitle: "Escuela y desigualdad en la participación política juvenil"
+author: "Benjamín Zavala Torres"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    embed-resources: true
+    theme: cosmo
+lang: es
+execute:
+  warning: false
+  message: false
+---
+
+Este documento **solo diagnostica**; no modifica tus bases ni tus qmd de modelos. Responde cuatro preguntas, por cohorte:
+
+1. ¿Cuáles son los ítems de expectativa de voto, cómo se distribuyen y cuánto "techo" hay? (secciones 2 y 3)
+2. ¿Tu variable binaria `voto` equivale a "todos los ítems en la categoría máxima"? (sección 3)
+3. ¿Qué tan confiable es el puntaje latente y cuánto se parece a la binaria y al índice z? (secciones 4 a 6)
+4. ¿Cambian el ICC y los efectos de origen y clima de aula al pasar de logit a un modelo lineal con el puntaje latente? (secciones 7 y 8)
+
+La sección 9 resume los criterios de decisión en una sola tabla.
+
+# 1. Configuración
+
+```{r setup}
+# haven debe estar cargado (las bases traen variables haven_labelled; ver nota en modelos_tablas_figuras.qmd)
+pacman::p_load(tidyverse, haven, lme4, mirt, here, knitr)
+
+# Otros paquetes cargados en la sesión pueden "tapar" estas funciones; se fijan explícitamente
+set_names <- purrr::set_names
+select    <- dplyr::select
+filter    <- dplyr::filter
+rename    <- dplyr::rename
+mutate    <- dplyr::mutate
+summarise <- dplyr::summarise
+map       <- purrr::map
+
+dir_proc <- here::here("output", "data_procesada")
+dir_out  <- here::here("output", "diagnostico_latente")
+dir.create(dir_out, showWarnings = FALSE, recursive = TRUE)
+
+cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+etiq     <- c(CIVED_1999 = "CIVED 1999", ICCS_2009 = "ICCS 2009",
+              ICCS_2016 = "ICCS 2016", PACES_2019 = "PACES 2019")
+```
+
+## 1.1 Qué columnas son los ítems
+
+Por defecto uso los nombres del libro de códigos (**N1 = elecciones nacionales, N2 = informarse sobre los candidatos, N3 = elecciones locales**). El documento imprime la **etiqueta** de cada columna para que confirmes que son las correctas. Si en tus bases se llaman distinto, completa `ITEMS_MANUAL` (un vector con nombre por cohorte; en CIVED no existe el ítem local):
+
+```{r config_items}
+ITEMS_MANUAL <- list(
+  # Ejemplo (descomenta y ajusta si hace falta):
+  # CIVED_1999 = c(nacional = "N1", informarse = "N2"),
+  # ICCS_2009  = c(nacional = "N1", informarse = "N2", local = "N3")
+)
+ITEMS_DEFECTO <- c(nacional = "N1", informarse = "N2", local = "N3")
+
+# Variables para la comparación rápida de efectos (sección 8)
+VAR_ID      <- "id_colegio"
+VAR_BINARIA <- "voto"
+VAR_CLIMA   <- "indice_aula_ind"       # clima de aula individual (se centra dentro de la escuela)
+VAR_ORIGEN  <- c("libro", "nivel_educ", "Sexo")
+```
+
+```{r lectura}
+datos <- map(set_names(cohortes), function(coh) {
+  f <- file.path(dir_proc, paste0("proc_", coh, ".rds"))
+  if (!file.exists(f)) stop("No encuentro ", f, ". Revisa la carpeta output/data_procesada/.")
+  readRDS(f)
+})
+
+limpiar_num <- function(x) as.numeric(haven::zap_labels(x))
+etiqueta_de <- function(x) { l <- attr(x, "label"); if (is.null(l)) NA_character_ else as.character(l) }
+
+resolver_items <- function(df, coh) {
+  if (!is.null(ITEMS_MANUAL[[coh]])) {
+    it <- ITEMS_MANUAL[[coh]]
+  } else {
+    it <- ITEMS_DEFECTO[ITEMS_DEFECTO %in% names(df)]
+  }
+  falta <- setdiff(it, names(df))
+  if (length(falta) > 0) stop(coh, ": no existen las columnas ", paste(falta, collapse = ", "),
+                              ". Completa ITEMS_MANUAL con los nombres reales. Columnas disponibles: ",
+                              paste(names(df), collapse = ", "))
+  # se descartan ítems completamente vacíos (p. ej. el ítem local en CIVED)
+  vacio <- vapply(it, function(v) all(is.na(df[[v]])), logical(1))
+  it[!vacio]
+}
+items <- imap(datos, ~ resolver_items(.x, .y))
+```
+
+Ítems usados y su etiqueta en la base (**revisa que correspondan a votar en elecciones nacionales, informarse y votar en elecciones locales**):
+
+```{r items_etiquetas}
+tab_items <- imap_dfr(items, function(it, coh)
+  tibble(cohorte = etiq[[coh]], tipo = names(it), columna = unname(it),
+         etiqueta = map_chr(unname(it), ~ etiqueta_de(datos[[coh]][[.x]]))))
+kable(tab_items)
+```
+
+# 2. Distribución de los ítems por cohorte
+
+Se asume que los ítems ya están en dirección ascendente (mayor = más expectativa de votar), como en tu libro de códigos. La tabla muestra el **% de respuestas en cada categoría** (de la menor a la mayor) y marca la categoría máxima, que es la que usas para la binaria.
+
+```{r distribucion}
+matriz_items <- function(coh) {
+  X <- datos[[coh]][, unname(items[[coh]]), drop = FALSE]
+  X[] <- lapply(X, limpiar_num)
+  names(X) <- names(items[[coh]])
+  as.data.frame(X)
+}
+X_ord <- map(set_names(cohortes), matriz_items)
+
+dist_items <- imap_dfr(X_ord, function(X, coh) {
+  imap_dfr(X, function(x, nm) {
+    tb <- table(x); pc <- round(100 * prop.table(tb), 1)
+    tibble(cohorte = etiq[[coh]], item = nm, n_valido = sum(!is.na(x)), n_categorias = length(tb),
+           categorias = paste(names(tb), collapse = " / "),
+           `% por categoria` = paste(pc, collapse = " / "),
+           `% en la maxima` = round(100 * mean(x == max(x, na.rm = TRUE), na.rm = TRUE), 1))
+  })
+})
+kable(dist_items)
+write_csv(dist_items, file.path(dir_out, "distribucion_items.csv"))
+```
+
+```{r chequeo_direccion}
+# Dirección: cada ítem debería correlacionar positivamente con los demás y con `voto`
+dir_items <- imap_dfr(X_ord, function(X, coh) {
+  v <- if (VAR_BINARIA %in% names(datos[[coh]])) limpiar_num(datos[[coh]][[VAR_BINARIA]]) else rep(NA_real_, nrow(X))
+  imap_dfr(X, function(x, nm) {
+    otros <- X[setdiff(names(X), nm)]
+    tibble(cohorte = etiq[[coh]], item = nm,
+           r_con_voto = suppressWarnings(cor(x, v, use = "pairwise", method = "spearman")),
+           r_con_otros = if (ncol(otros) > 0) suppressWarnings(cor(x, rowMeans(otros, na.rm = TRUE), use = "pairwise", method = "spearman")) else NA_real_)
+  })
+}) %>% mutate(across(starts_with("r_"), ~ round(.x, 2)), alerta = ifelse(r_con_voto < 0 | r_con_otros < 0, "REVISAR DIRECCION", "ok"))
+kable(dir_items)
+```
+
+# 3. Techo y relación con tu binaria
+
+`todo_max` = todos los ítems disponibles en la categoría máxima. Si tu `voto` se construyó como "puntaje máximo del índice", debería coincidir con `todo_max`.
+
+```{r techo}
+techo <- imap_dfr(X_ord, function(X, coh) {
+  top <- vapply(X, function(x) max(x, na.rm = TRUE), numeric(1))
+  completo <- complete.cases(X)
+  todo_max <- ifelse(completo, as.integer(rowSums(sweep(as.matrix(X), 2, top, "==")) == ncol(X)), NA_integer_)
+  v <- if (VAR_BINARIA %in% names(datos[[coh]])) limpiar_num(datos[[coh]][[VAR_BINARIA]]) else rep(NA_real_, nrow(X))
+  ok <- !is.na(todo_max) & !is.na(v)
+  tibble(cohorte = etiq[[coh]], n_items = ncol(X),
+         `% todo_max` = round(100 * mean(todo_max, na.rm = TRUE), 1),
+         `% voto = 1` = round(100 * mean(v, na.rm = TRUE), 1),
+         `% coincidencia` = round(100 * mean(todo_max[ok] == v[ok]), 1),
+         `n comparados` = sum(ok))
+})
+kable(techo)
+write_csv(techo, file.path(dir_out, "techo_y_binaria.csv"))
+```
+
+Si `% coincidencia` no es cercano a 100, tu binaria se definió de otra forma (p. ej. promedio del índice ≥ un umbral, o con otros ítems); en ese caso conviene revisar cómo se construyó antes de comparar.
+
+# 4. Puntajes: índice z y latente
+
+Tres versiones de la variable continua, todas estandarizadas **dentro de cada cohorte** (media 0, DE 1, sin ponderar, porque tus modelos son sin ponderar):
+
+- `media_z`: promedio simple de los ítems disponibles (equivale a tu índice z).
+- `lat_comun_z`: **puntaje latente con los ítems estrictamente comparables** (nacional + informarse, presentes en las 4 cohortes). Modelo de respuesta graduada (GRM) con **pendientes iguales** entre ítems, porque con 2 ítems las pendientes libres no están identificadas.
+- `lat_ext_z`: puntaje latente con **todos los ítems disponibles** (3 en ICCS y PACES; en CIVED es idéntico al anterior). Pendientes libres si hay 3 ítems.
+
+El puntaje latente es el esperado a posteriori (EAP) del modelo de cada cohorte.
+
+```{r grm}
+recodificar_consecutivo <- function(x) {
+  u <- sort(unique(x[!is.na(x)]))
+  match(x, u) - 1L                                  # categorias 0..K-1, la maxima sigue siendo la maxima
+}
+
+ajustar_grm <- function(X, igual_pendiente) {
+  X <- as.data.frame(lapply(X, recodificar_consecutivo))
+  k <- ncol(X)
+  if (igual_pendiente) {
+    mod <- mirt(X, model = mirt.model(paste0("F = 1-", k, "\nCONSTRAIN = (1-", k, ", a1)")),
+                itemtype = "graded", verbose = FALSE)
+  } else {
+    mod <- mirt(X, 1, itemtype = "graded", verbose = FALSE)
+  }
+  sc <- fscores(mod, method = "EAP", full.scores = TRUE, full.scores.SE = TRUE)
+  er <- tryCatch(as.numeric(fscores(mod, method = "EAP", returnER = TRUE)), error = function(e) NA_real_)
+  list(modelo = mod, f = as.numeric(sc[, 1]), se = as.numeric(sc[, 2]), conf = er)
+}
+
+zs <- function(x) as.numeric(scale(x))
+
+puntajes <- imap(X_ord, function(X, coh) {
+  comunes <- X[, intersect(c("nacional", "informarse"), names(X)), drop = FALSE]
+  stopifnot(ncol(comunes) == 2)
+  g_com <- ajustar_grm(comunes, igual_pendiente = TRUE)
+  if (ncol(X) >= 3) g_ext <- ajustar_grm(X, igual_pendiente = FALSE) else g_ext <- g_com
+  sin_datos <- rowSums(!is.na(X)) == 0
+  out <- tibble(media_z = zs(rowMeans(X, na.rm = TRUE)),
+                lat_comun_z = zs(g_com$f), lat_ext_z = zs(g_ext$f))
+  out[sin_datos, ] <- NA
+  list(puntajes = out, conf = c(comun = g_com$conf, ext = g_ext$conf),
+       pendientes = list(comun = coef(g_com$modelo, simplify = TRUE, IRTpars = TRUE)$items,
+                         ext = coef(g_ext$modelo, simplify = TRUE, IRTpars = TRUE)$items))
+})
+
+# Orientación: el puntaje debe subir con los ítems; si quedara invertido se da vuelta
+for (coh in cohortes) {
+  P <- puntajes[[coh]]$puntajes
+  for (v in c("lat_comun_z", "lat_ext_z"))
+    if (isTRUE(cor(P[[v]], P$media_z, use = "pairwise") < 0)) P[[v]] <- -P[[v]]
+  puntajes[[coh]]$puntajes <- P
+}
+```
+
+## 4.1 Confiabilidad
+
+Confiabilidad empírica del puntaje EAP (a mayor valor, menos error de medida) y alfa de Cronbach de los ítems (los valores .80–.91 de tu libro de códigos son del índice completo).
+
+```{r confiabilidad}
+alfa <- function(X) {
+  X <- X[complete.cases(X), , drop = FALSE]; k <- ncol(X)
+  if (k < 2) return(NA_real_)
+  (k / (k - 1)) * (1 - sum(apply(X, 2, var)) / var(rowSums(X)))
+}
+conf <- imap_dfr(puntajes, function(p, coh)
+  tibble(cohorte = etiq[[coh]], n_items = ncol(X_ord[[coh]]),
+         `alfa (todos los items)` = round(alfa(X_ord[[coh]]), 2),
+         `alfa (2 items comunes)` = round(alfa(X_ord[[coh]][, intersect(c("nacional", "informarse"), names(X_ord[[coh]]))]), 2),
+         `confiabilidad EAP comun` = round(p$conf[["comun"]], 2),
+         `confiabilidad EAP extendido` = round(p$conf[["ext"]], 2)))
+kable(conf)
+write_csv(conf, file.path(dir_out, "confiabilidad.csv"))
+```
+
+# 5. Qué tanto se parece el latente a la binaria y al índice z
+
+Correlaciones de Spearman entre `voto`, `media_z` y los dos puntajes latentes, por cohorte.
+
+```{r correlaciones}
+cors <- imap_dfr(puntajes, function(p, coh) {
+  v <- if (VAR_BINARIA %in% names(datos[[coh]])) limpiar_num(datos[[coh]][[VAR_BINARIA]]) else rep(NA_real_, nrow(p$puntajes))
+  d <- bind_cols(voto = v, p$puntajes)
+  cm <- cor(d, use = "pairwise.complete.obs", method = "spearman")
+  tibble(cohorte = etiq[[coh]],
+         `voto ~ media_z` = cm["voto", "media_z"], `voto ~ lat_comun_z` = cm["voto", "lat_comun_z"],
+         `voto ~ lat_ext_z` = cm["voto", "lat_ext_z"], `media_z ~ lat_comun_z` = cm["media_z", "lat_comun_z"],
+         `lat_comun_z ~ lat_ext_z` = cm["lat_comun_z", "lat_ext_z"]) %>% mutate(across(where(is.numeric), ~ round(.x, 2)))
+})
+kable(cors)
+write_csv(cors, file.path(dir_out, "correlaciones.csv"))
+```
+
+# 6. Forma de la distribución (techo)
+
+```{r distribucion_latente, fig.width = 9, fig.height = 5}
+largo <- imap_dfr(puntajes, function(p, coh) p$puntajes %>% mutate(cohorte = etiq[[coh]])) %>%
+  pivot_longer(c(media_z, lat_comun_z, lat_ext_z), names_to = "puntaje", values_to = "z") %>%
+  mutate(cohorte = factor(cohorte, levels = etiq),
+         puntaje = factor(puntaje, levels = c("media_z", "lat_comun_z", "lat_ext_z"),
+                          labels = c("Indice z (promedio)", "Latente comun", "Latente extendido")))
+g <- ggplot(largo, aes(z)) + geom_histogram(bins = 30, fill = "#1B2A41", colour = "white", linewidth = .1) +
+  facet_grid(puntaje ~ cohorte, scales = "free_y") + labs(x = "Puntaje (z dentro de cada cohorte)", y = "Estudiantes") +
+  theme_classic(base_size = 9)
+ggsave(file.path(dir_out, "distribucion_puntajes.png"), g, width = 18, height = 10, units = "cm", dpi = 200, bg = "white")
+g
+
+asimetria <- function(x) { x <- x[!is.na(x)]; mean((x - mean(x))^3) / sd(x)^3 }
+forma <- largo %>% group_by(cohorte, puntaje) %>%
+  summarise(asimetria = round(asimetria(z), 2), `% en el maximo` = round(100 * mean(z >= max(z, na.rm = TRUE) - 1e-9, na.rm = TRUE), 1),
+            .groups = "drop")
+kable(forma)
+write_csv(forma, file.path(dir_out, "forma_distribucion.csv"))
+```
+
+Una asimetría muy negativa y un alto % en el máximo indican techo: el puntaje latente **no lo elimina**, solo reparte mejor las categorías de abajo.
+
+# 7. ICC del modelo nulo: logit vs lineal
+
+- **Binaria (logit):** ICC = τ₀₀ / (τ₀₀ + π²/3) (varianza individual fija de la logística).
+- **Continuas (lineal):** ICC = τ₀₀ / (τ₀₀ + σ²). Es la escala que reportan Castillo (2015), Hooghe y Dassonneville (2013) y los demás estudios IEA de tu tabla.
+
+Las dos cifras **no son directamente comparables**: miden lo mismo (proporción de varianza entre escuelas) en escalas distintas.
+
+```{r icc}
+ctrl <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+icc_lin <- function(m) { v <- as.data.frame(VarCorr(m)); t00 <- v$vcov[v$grp == VAR_ID]; s2 <- attr(VarCorr(m), "sc")^2; t00 / (t00 + s2) }
+icc_log <- function(m) { t00 <- as.data.frame(VarCorr(m))$vcov[1]; t00 / (t00 + pi^2 / 3) }
+
+icc_tab <- imap_dfr(puntajes, function(p, coh) {
+  d <- bind_cols(datos[[coh]][, VAR_ID, drop = FALSE], p$puntajes)
+  d[[VAR_ID]] <- factor(limpiar_num(d[[VAR_ID]]))
+  d$voto <- if (VAR_BINARIA %in% names(datos[[coh]])) limpiar_num(datos[[coh]][[VAR_BINARIA]]) else NA_real_
+  d <- d[!is.na(d[[VAR_ID]]), ]
+  f_ <- function(y) as.formula(paste(y, "~ 1 + (1 |", VAR_ID, ")"), env = globalenv())
+  m_log <- if (all(is.na(d$voto))) NULL else glmer(f_("voto"), data = d, family = binomial, control = ctrl)
+  tibble(cohorte = etiq[[coh]],
+         `ICC logit (voto)` = if (is.null(m_log)) NA_real_ else icc_log(m_log),
+         `ICC lineal media_z` = icc_lin(lmer(f_("media_z"), data = d)),
+         `ICC lineal lat_comun_z` = icc_lin(lmer(f_("lat_comun_z"), data = d)),
+         `ICC lineal lat_ext_z` = icc_lin(lmer(f_("lat_ext_z"), data = d)),
+         n_escuelas = nlevels(droplevels(d[[VAR_ID]])), n = nrow(d))
+}) %>% mutate(across(starts_with("ICC"), ~ round(.x, 3)))
+kable(icc_tab)
+write_csv(icc_tab, file.path(dir_out, "icc_logit_vs_lineal.csv"))
+```
+
+Nota: el puntaje EAP encoge hacia la media (más con pocos ítems), lo que puede subestimar levemente la varianza dentro de las escuelas y sobreestimar el ICC. Si esta diferencia importa, el control de un solo paso (modelo ordinal multinivel de los ítems) la cuantifica; no está incluido en este diagnóstico.
+
+# 8. Comparación rápida de efectos
+
+Modelo reducido (no son tus M2 ni M3): `y ~ libro + nivel_educ + Sexo + clima de aula individual (centrado en la escuela) + (1 | escuela)`, con **la misma muestra** para todas las versiones de la variable dependiente. Se compara el **signo** y si el estadístico z (logit) o t (lineal) supera |1.96|. Los coeficientes están en escalas distintas (log-odds vs DE de cada puntaje), por eso se comparan signo y significancia, no magnitud.
+
+```{r efectos}
+faltan <- function(coh) setdiff(c(VAR_ID, VAR_CLIMA, VAR_ORIGEN), names(datos[[coh]]))
+
+efectos <- imap_dfr(puntajes, function(p, coh) {
+  fal <- faltan(coh)
+  if (length(fal) > 0) {
+    message(coh, ": faltan columnas (", paste(fal, collapse = ", "), "); se omite esta comparación.")
+    return(NULL)
+  }
+  d <- bind_cols(datos[[coh]][, c(VAR_ID, VAR_CLIMA, VAR_ORIGEN)], p$puntajes)
+  d[] <- lapply(d, function(x) if (inherits(x, "haven_labelled")) limpiar_num(x) else x)
+  d$voto <- if (VAR_BINARIA %in% names(datos[[coh]])) limpiar_num(datos[[coh]][[VAR_BINARIA]]) else NA_real_
+  d$esc <- factor(d[[VAR_ID]])
+  d$clima_cwc <- d[[VAR_CLIMA]] - ave(d[[VAR_CLIMA]], d$esc, FUN = function(x) mean(x, na.rm = TRUE))
+  d <- d[complete.cases(d[, c("esc", "clima_cwc", VAR_ORIGEN, "media_z", "lat_comun_z", "lat_ext_z")]), ]
+  rhs <- paste(c(VAR_ORIGEN, "clima_cwc"), collapse = " + ")
+  ajustes <- list(
+    `voto (logit)` = if (all(is.na(d$voto))) NULL else glmer(as.formula(paste("voto ~", rhs, "+ (1 | esc)"), env = globalenv()), data = d, family = binomial, control = ctrl),
+    `media_z` = lmer(as.formula(paste("media_z ~", rhs, "+ (1 | esc)"), env = globalenv()), data = d),
+    `lat_comun_z` = lmer(as.formula(paste("lat_comun_z ~", rhs, "+ (1 | esc)"), env = globalenv()), data = d),
+    `lat_ext_z` = lmer(as.formula(paste("lat_ext_z ~", rhs, "+ (1 | esc)"), env = globalenv()), data = d))
+  imap_dfr(compact(ajustes), function(m, nm) {
+    cf <- as.data.frame(coef(summary(m)))
+    tibble(cohorte = etiq[[coh]], dv = nm, termino = rownames(cf)[-1], est = cf[-1, 1], z = cf[-1, 3],
+           n = nrow(d), sd_resid_asim = if (inherits(m, "lmerMod")) asimetria(resid(m)) else NA_real_)
+  })
+})
+
+if (nrow(efectos) > 0) {
+  ref <- efectos %>% filter(dv == "voto (logit)") %>% select(cohorte, termino, signo_ref = est, z_ref = z) %>%
+    mutate(signo_ref = sign(signo_ref), sig_ref = abs(z_ref) >= 1.96)
+  comp <- efectos %>% filter(dv != "voto (logit)") %>% left_join(ref, by = c("cohorte", "termino")) %>%
+    mutate(mismo_signo = sign(est) == signo_ref, sig = abs(z) >= 1.96, misma_signif = sig == sig_ref)
+  ver <- efectos %>% mutate(est = round(est, 3), z = round(z, 2), sd_resid_asim = round(sd_resid_asim, 2)) %>%
+    select(cohorte, dv, termino, est, z, n)
+  print(kable(ver))
+  write_csv(ver, file.path(dir_out, "efectos_rapidos.csv"))
+}
+```
+
+# 9. Resumen de criterios
+
+```{r resumen}
+res <- conf %>% select(cohorte, `confiabilidad EAP comun`, `confiabilidad EAP extendido`) %>%
+  left_join(cors %>% select(cohorte, `voto ~ lat_comun_z`, `media_z ~ lat_comun_z`), by = "cohorte") %>%
+  left_join(icc_tab %>% select(cohorte, `ICC logit (voto)`, `ICC lineal lat_comun_z`), by = "cohorte") %>%
+  left_join(forma %>% filter(puntaje == "Latente comun") %>% transmute(cohorte = as.character(cohorte), `asimetria latente comun` = asimetria, `% en el maximo (latente comun)` = `% en el maximo`), by = "cohorte")
+if (exists("comp") && nrow(comp) > 0) {
+  res <- res %>% left_join(comp %>% filter(dv == "lat_comun_z") %>% group_by(cohorte) %>%
+    summarise(`% coef. con mismo signo que el logit` = round(100 * mean(mismo_signo), 0),
+              `% coef. con misma significancia` = round(100 * mean(misma_signif), 0), .groups = "drop"), by = "cohorte")
+}
+kable(res)
+write_csv(res, file.path(dir_out, "resumen_criterios.csv"))
+```
+
+**Cómo leerlo.** El latente aporta si (a) su confiabilidad es razonable en las cuatro cohortes (en CIVED, con 2 ítems, será la más baja), (b) se parece a tu binaria y a tu índice z (correlaciones altas) pero no es idéntico, (c) los signos y la significancia de los efectos coinciden con el logit, y (d) el ICC lineal queda en un rango plausible frente a la literatura (6–12% en los estudios IEA de tu tabla, sin pretender que sea comparable con el ICC logit). Si (c) se cumple casi siempre, la conclusión sustantiva no cambia y el latente sirve sobre todo como **justificación y sensibilidad**. Si no se cumple, hay que mirar en cuál cohorte y en cuál variable y por qué.
+
+# 10. Archivos generados
+
+```{r guardar}
+for (coh in cohortes) {
+  nuevo <- bind_cols(datos[[coh]], puntajes[[coh]]$puntajes)
+  saveRDS(nuevo, file.path(dir_out, paste0("puntajes_", coh, ".rds")))
+}
+data.frame(archivo = list.files(dir_out)) %>% kable()
+```
+
+Los `puntajes_<COHORTE>.rds` son tus bases procesadas **más** las columnas `media_z`, `lat_comun_z` y `lat_ext_z` (mismo orden de filas). Tus `proc_<COHORTE>.rds` originales no se tocan.
