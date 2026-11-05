@@ -50,15 +50,16 @@ etiq     <- c(CIVED_1999 = "CIVED 1999", ICCS_2009 = "ICCS 2009",
 
 ## 1.1 Qué columnas son los ítems
 
-Por defecto uso los nombres del libro de códigos (**N1 = elecciones nacionales, N2 = informarse sobre los candidatos, N3 = elecciones locales**). El documento imprime la **etiqueta** de cada columna para que confirmes que son las correctas. Si en tus bases se llaman distinto, completa `ITEMS_MANUAL` (un vector con nombre por cohorte; en CIVED no existe el ítem local):
+**Ojo:** en tus bases los nombres `N1`–`N9` corresponden a los ítems de **clima de aula**, no a los de expectativa de voto, así que no sirven como nombre por defecto. El documento intenta encontrar los ítems de voto **por su etiqueta** (nacional, informarse sobre candidatos, local). Si tus columnas no tienen etiqueta, o no las reconoce, indícalas tú en `ITEMS_MANUAL`: un vector con nombre por cohorte (en CIVED no existe el ítem local).
 
 ```{r config_items}
 ITEMS_MANUAL <- list(
-  # Ejemplo (descomenta y ajusta si hace falta):
-  # CIVED_1999 = c(nacional = "N1", informarse = "N2"),
-  # ICCS_2009  = c(nacional = "N1", informarse = "N2", local = "N3")
+  # Ejemplo (descomenta y reemplaza por los nombres reales de tus columnas):
+   CIVED_1999 = c(nacional = "M1", informarse = "M2"),
+   ICCS_2009  = c(nacional = "M1", informarse = "M2", local = "M3"),
+   ICCS_2016  = c(nacional = "M1", informarse = "M2", local = "M3"),
+   PACES_2019 = c(nacional = "M1", informarse = "M2", local = "M3")
 )
-ITEMS_DEFECTO <- c(nacional = "N1", informarse = "N2", local = "N3")
 
 # Variables para la comparación rápida de efectos (sección 8)
 VAR_ID      <- "id_colegio"
@@ -77,20 +78,49 @@ datos <- map(set_names(cohortes), function(coh) {
 limpiar_num <- function(x) as.numeric(haven::zap_labels(x))
 etiqueta_de <- function(x) { l <- attr(x, "label"); if (is.null(l)) NA_character_ else as.character(l) }
 
-resolver_items <- function(df, coh) {
-  if (!is.null(ITEMS_MANUAL[[coh]])) {
-    it <- ITEMS_MANUAL[[coh]]
-  } else {
-    it <- ITEMS_DEFECTO[ITEMS_DEFECTO %in% names(df)]
-  }
-  falta <- setdiff(it, names(df))
-  if (length(falta) > 0) stop(coh, ": no existen las columnas ", paste(falta, collapse = ", "),
-                              ". Completa ITEMS_MANUAL con los nombres reales. Columnas disponibles: ",
-                              paste(names(df), collapse = ", "))
-  # se descartan ítems completamente vacíos (p. ej. el ítem local en CIVED)
-  vacio <- vapply(it, function(v) all(is.na(df[[v]])), logical(1))
-  it[!vacio]
+# Columnas con pocas categorías (candidatas a ser ítems tipo Likert), con su etiqueta
+columnas_candidatas <- function(df) {
+  imap_dfr(df, function(x, nm) {
+    v <- limpiar_num(x)
+    if (all(is.na(v)) || !is.numeric(v)) return(NULL)
+    u <- sort(unique(v[!is.na(v)]))
+    if (length(u) < 2 || length(u) > 6 || any(u != round(u))) return(NULL)
+    tibble(columna = nm, etiqueta = etiqueta_de(x), categorias = paste(u, collapse = "/"),
+           n_validos = sum(!is.na(v)))
+  })
 }
+
+# Reconocimiento por etiqueta (solo si las columnas conservan su etiqueta)
+reconocer_por_etiqueta <- function(df) {
+  cand <- columnas_candidatas(df) %>% filter(!is.na(etiqueta)) %>% mutate(e = tolower(etiqueta))
+  pick <- function(rx) { x <- cand$columna[grepl(rx, cand$e)]; if (length(x) == 1) x else NA_character_ }
+  c(nacional   = pick("(nacional|national|presiden).*(elec|vot)|(elec|vot).*(nacional|national|presiden)"),
+    informarse = pick("inform.*candid|candid.*inform"),
+    local      = pick("(local|municip|alcald).*(elec|vot)|(elec|vot).*(local|municip|alcald)"))
+}
+
+resolver_items <- function(df, coh) {
+  it <- if (!is.null(ITEMS_MANUAL[[coh]])) ITEMS_MANUAL[[coh]] else reconocer_por_etiqueta(df)
+  it <- it[!is.na(it)]
+  falta <- setdiff(it, names(df))
+  if (length(falta) > 0) stop(coh, ": no existen las columnas ", paste(falta, collapse = ", "), ".")
+  vacio <- vapply(it, function(v) all(is.na(df[[v]])), logical(1))     # p. ej. el ítem local en CIVED
+  it <- it[!vacio]
+  if (!all(c("nacional", "informarse") %in% names(it)))
+    stop(coh, ": no pude identificar los ítems 'nacional' e 'informarse' por su etiqueta.\n",
+         "Revisa la tabla 'columnas candidatas' de arriba y completa ITEMS_MANUAL para esta cohorte.")
+  it
+}
+```
+
+Columnas candidatas a ítems de voto (columnas numéricas con 2 a 6 categorías), para que puedas identificar las tuyas si hace falta. Busca las preguntas sobre votar en elecciones nacionales, informarse sobre los candidatos y votar en elecciones locales:
+
+```{r columnas_candidatas}
+#| results: asis
+for (coh in cohortes) { cat("\n**", etiq[[coh]], "**\n\n"); print(kable(columnas_candidatas(datos[[coh]]))) }
+```
+
+```{r items}
 items <- imap(datos, ~ resolver_items(.x, .y))
 ```
 
