@@ -231,9 +231,13 @@ proc_PACES_2019$libro <- car::recode(proc_PACES_2019$libro,
 #Homologación Voto--------------------------------------------------------------
 
 proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(across(c(M1, M2, M3, libro, N1, N3, N5, N7, N8, N9, P3, P5, P6,
-                  Nive_educ_madre, Nive_educ_padre), 
+  mutate(across(c(M1, M2, M3, N1, N3, N5, N7, N8, N9, P3, P5, P6), 
                 ~replace(., . %in% c(5, 8, 9), NA)))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(libro,
+                  Nive_educ_madre, Nive_educ_padre), 
+                ~replace(., . %in% c(8, 9), NA)))
 
 proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(across(c(M1, M2, M3), 
