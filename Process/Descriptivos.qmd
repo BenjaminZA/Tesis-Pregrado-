@@ -15,7 +15,7 @@ pacman::p_load(tidyverse,
                haven, 
                car, 
                magrittr,
-               psych,d
+               psych,
                readxl, 
                fastDummies,
                stargazer,

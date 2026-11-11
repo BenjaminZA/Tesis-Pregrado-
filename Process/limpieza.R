@@ -292,7 +292,7 @@ proc_PACES_2019$Nive_educ_madre <- car::recode(proc_PACES_2019$Nive_educ_madre,
                                      "1=0; 2=1; 3=2; 4=3; 5=4",
                                      as.numeric = TRUE)
 
-#Homologación nivel educacional del padre-----------------
+#Homologación nivel educacional del padre---------------------------------------
 
 proc_ICCS_2009$Nive_educ_padre <- car::recode(proc_ICCS_2009$Nive_educ_padre, 
                                               "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
@@ -306,7 +306,7 @@ proc_PACES_2019$Nive_educ_padre <- car::recode(proc_PACES_2019$Nive_educ_padre,
                                                "1=0; 2=1; 3=2; 4=3; 5=4",
                                                as.numeric = TRUE)
 
-#Tomamos en consideración el nivel mayor entre el padre y la madre-------
+#Tomamos en consideración el nivel mayor entre el padre y la madre--------------
 
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
   mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
@@ -769,16 +769,16 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
 # Recodificar Libro como Dummy: Más de 100 libros 
 
 proc_CIVED_1999 <- proc_CIVED_1999 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1)) 
+  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1)) 
 
 proc_ICCS_2009<- proc_ICCS_2009 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1))
                                                
 proc_ICCS_2016<- proc_ICCS_2016 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1))
 
 proc_PACES_2019<- proc_PACES_2019 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1))
 
 # Recodificar Nivel educa de los padres
 
