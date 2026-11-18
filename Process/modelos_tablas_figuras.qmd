@@ -43,7 +43,7 @@ mutate    <- dplyr::mutate
 summarise <- dplyr::summarise
 map       <- purrr::map
 
-REESTIMAR <- FALSE      # TRUE = ignora la caché y reestima todos los modelos
+REESTIMAR <- TRUE      # TRUE = ignora la caché y reestima todos los modelos
 
 dir_proc <- here::here("output", "data_procesada")
 dir_rds  <- here::here("output", "modelos_rds")           # caché de modelos
@@ -786,4 +786,118 @@ Todo queda en `output/modelos_escrito/` (tablas `.docx`, figuras `.png` a 300 dp
 ```{r archivos}
 tibble(archivo = list.files(dir_out, recursive = TRUE)) %>% print(n = Inf)
 sessionInfo()$R.version$version.string
+```
+
+```{r}
+
+fig_clima_modera <- function(origen = "libro", etiquetas_origen = c("Pocos", "Muchos"), titulo_x = "Libros en el hogar",
+                             variable = "indice_aula_ind_cwc", archivo = "figura2_clima_modera_libros.png",
+                             n_de = 1, mostrar_or = TRUE, ancho = 16, alto = 8.5) {
+  res <- map_dfr(cohortes, function(coh) {
+    nm <- especificacion[[coh]] %>% filter(bloque == "M4", variable == !!variable, origen == !!origen) %>% pull(modelo)
+    m  <- MODELOS[[coh]][[nm]]
+    x  <- as.numeric(haven::zap_labels(m@frame[[variable]]))          # datos efectivamente usados por el modelo
+    valores <- c(mean(x) - n_de * sd(x), mean(x) + n_de * sd(x))      # clima bajo (-DE) y alto (+DE)
+    term_o <- if (is.factor(m@frame[[origen]])) origen else paste0(origen, " [0,1]")   # 0/1 numérica o factor
+    p <- as.data.frame(ggpredict(m, terms = c(term_o,
+                                              sprintf("%s [%.5f, %.5f]", variable, valores[1], valores[2]))))
+    g <- as.numeric(as.character(p$group))
+    cf <- coefs %>% filter(cohorte == coh, modelo == nm, grepl(":", termino))
+    etiqueta <- if (mostrar_or) sprintf("%s\nOR interacción = %s%s", etiq[[coh]], fmt2(cf$or), cf$est_p) else etiq[[coh]]
+    tibble(cohorte = coh, modelo = nm, cohorte_f = etiqueta,
+           origen_f = factor(as.numeric(factor(p$x)), levels = 1:2, labels = etiquetas_origen),
+           grupo = factor(ifelse(g == min(g), 1, 2), levels = 1:2,
+                          labels = sprintf(c("Clima bajo (%+d DE)", "Clima alto (%+d DE)"), c(-n_de, n_de))),
+           valor_clima = g, predicted = p$predicted, conf.low = p$conf.low, conf.high = p$conf.high,
+           de_clima = sd(x))
+  })
+  res <- res %>% mutate(cohorte_f = factor(cohorte_f, levels = unique(cohorte_f)))
+  ylim <- c(max(0, floor(min(res$conf.low) * 20) / 20), min(1, ceiling(max(res$conf.high) * 20) / 20))
+  pd <- position_dodge(width = .12)
+  fig <- ggplot(res, aes(origen_f, predicted, colour = grupo, linetype = grupo, group = grupo)) +
+    geom_line(linewidth = .7, position = pd) +
+    geom_pointrange(aes(ymin = conf.low, ymax = conf.high), size = .35, linewidth = .5, linetype = "solid", position = pd) +
+    facet_wrap(~ cohorte_f, nrow = 1) +
+    scale_colour_manual(values = COL_GRUPOS[c(2, 1)]) +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    scale_y_continuous(limits = ylim, labels = scales::label_percent(accuracy = 1)) +
+    labs(x = titulo_x, y = "Prob. predicha de\nesperar votar",
+         colour = "Clima de aula individual", linetype = "Clima de aula individual") +
+    tema_tesis() + theme(strip.text = element_text(face = "bold", size = 8))
+  ggsave(file.path(dir_out, archivo), fig, width = ancho, height = alto, units = "cm", dpi = 300, bg = "white")
+  guardar_csv(res, sub("\\.png$", ".csv", archivo))
+  list(plot = fig, datos = res)
+}
+
+fig_cm <- fig_clima_modera()
+fig_cm$plot
+# valores de clima usados como "bajo" y "alto" en cada cohorte (media ± 1 DE)
+fig_cm$datos %>% distinct(cohorte, grupo, valor_clima, de_clima) %>% mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+```
+
+```{r figura2_CIVED1999_clima_modera}
+coh_p <- "CIVED_1999"; n_de <- 1; variable <- "indice_aula_ind_cwc"
+nm_p  <- especificacion[[coh_p]] %>% filter(bloque == "M4", variable == !!variable, origen == "libro") %>% pull(modelo)
+m_p   <- MODELOS[[coh_p]][[nm_p]]
+x_p   <- as.numeric(haven::zap_labels(m_p@frame[[variable]]))           # datos efectivamente usados por el modelo
+val_p <- c(mean(x_p) - n_de * sd(x_p), mean(x_p) + n_de * sd(x_p))      # clima bajo (-DE) y alto (+DE)
+term_libro <- if (is.factor(m_p@frame$libro)) "libro" else "libro [0,1]"
+pr_p  <- as.data.frame(ggpredict(m_p, terms = c(term_libro, sprintf("%s [%.5f, %.5f]", variable, val_p[1], val_p[2]))))
+g_p   <- as.numeric(as.character(pr_p$group))
+cf_p  <- coefs %>% filter(cohorte == coh_p, modelo == nm_p, grepl(":", termino))
+
+dat_p <- tibble(libros = factor(as.numeric(factor(pr_p$x)), levels = 1:2, labels = c("Pocos libros", "Muchos libros")),
+                clima  = factor(ifelse(g_p == min(g_p), 1, 2), levels = 1:2, labels = c("Clima bajo (\u22121 DE)", "Clima alto (+1 DE)")),
+                predicted = pr_p$predicted, conf.low = pr_p$conf.low, conf.high = pr_p$conf.high)
+ylim_p <- c(max(0, floor(min(dat_p$conf.low) * 20) / 20), min(1, ceiling(max(dat_p$conf.high) * 20) / 20))
+pd_p   <- position_dodge(width = .12)
+
+fig_cived_cm <- ggplot(dat_p, aes(libros, predicted, colour = clima, linetype = clima, group = clima)) +
+  geom_line(linewidth = .8, position = pd_p) +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), size = .4, linewidth = .55, linetype = "solid", position = pd_p) +
+  scale_colour_manual(values = COL_GRUPOS[c(2, 1)]) +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  scale_y_continuous(limits = ylim_p, labels = scales::label_percent(accuracy = 1)) +
+  labs(title = "CIVED 1999", subtitle = sprintf("OR de la interacci\u00F3n = %s%s", fmt2(cf_p$or), cf_p$est_p),
+       x = "Libros en el hogar", y = "Probabilidad predicha de\nesperar votar",
+       colour = "Clima de aula individual", linetype = "Clima de aula individual") +
+  tema_tesis() +
+  theme(plot.title = element_text(face = "bold", size = 10, hjust = .5), plot.subtitle = element_text(size = 9, hjust = .5))
+
+ggsave(file.path(dir_out, "figura2_CIVED1999_clima_modera_libros.png"), fig_cived_cm,
+       width = 12.5, height = 9.5, units = "cm", dpi = 300, bg = "white")
+guardar_csv(dat_p %>% mutate(valor_clima = val_p[c(1, 2)][as.integer(clima)], de_clima = sd(x_p)), "figura2_CIVED1999_clima_modera_libros.csv")
+fig_cived_cm
+```
+
+```{r}
+# --- opciones de esta tabla ---
+NUM_TABLA_ICC <- "X"       # número de la tabla (ponle el que corresponda en tu texto)
+ICC_CON_APOYO <- TRUE     # TRUE = agrega bajo el ICC: τ00, N de estudiantes y N de escuelas del modelo nulo
+DEC_ICC       <- 2         # decimales del ICC (sin cero inicial)
+
+m0_info <- info_modelos %>% filter(modelo == "M0") %>% mutate(icc = tau00 / (tau00 + pi^2 / 3))
+
+tabla_icc <- tibble(Variable = "ICC (M0)") %>%
+  bind_cols(map_dfc(set_names(cohortes, etiq[cohortes]), function(coh)
+    fmt_sc(m0_info$icc[m0_info$cohorte == coh], DEC_ICC)))
+if (ICC_CON_APOYO) {
+  tabla_icc <- bind_rows(tabla_icc, tibble(
+    Variable = c("τ₀₀ (M0)", "N estudiantes (M0)", "N escuelas (M0)"),
+    !!!set_names(map(cohortes, function(coh) { mi <- m0_info %>% filter(cohorte == coh)
+      c(fmt2(mi$tau00), fmt_n(mi$nobs), fmt_n(mi$n_esc)) }), etiq[cohortes])))
+}
+
+ft_icc <- flextable(tabla_icc) %>% aplicar_estilo_apa(c(3.6, rep(3.1, 4)))
+
+nota_icc <- paste0(
+  "ICC = τ₀₀ / (τ₀₀ + π²/3), calculado con el modelo nulo (M0: intercepto aleatorio por escuela, sin predictores) de un modelo logístico multinivel, ",
+  "con todos los casos disponibles de cada cohorte; π²/3 es la varianza residual de la distribución logística. ",
+  "Indica la proporción de la variación en la expectativa de voto (en la escala logit) que se encuentra entre escuelas.",
+  if (ICC_CON_APOYO) " τ₀₀ = varianza del intercepto aleatorio." else "")
+guardar_docx_apa(ft_icc, NUM_TABLA_ICC, "Correlación intraclase (ICC) del modelo nulo, por cohorte", nota_icc,
+                 "tabla_ICC_M0.docx", nota_p = FALSE)
+guardar_csv(m0_info %>% select(cohorte, tau00, icc, nobs, n_esc), "tabla_ICC_M0.csv")
+ft_icc
 ```

@@ -769,16 +769,16 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
 # Recodificar Libro como Dummy: Más de 100 libros 
 
 proc_CIVED_1999 <- proc_CIVED_1999 %>% 
-  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1)) 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1)) 
 
 proc_ICCS_2009<- proc_ICCS_2009 %>% 
-  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1))
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
                                                
 proc_ICCS_2016<- proc_ICCS_2016 %>% 
-  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1))
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
 
 proc_PACES_2019<- proc_PACES_2019 %>% 
-  mutate (libro = case_when(libro < 2 ~ 0, libro > 1 ~ 1))
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
 
 # Recodificar Nivel educa de los padres
 
