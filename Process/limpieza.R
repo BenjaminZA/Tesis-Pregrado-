@@ -26,10 +26,6 @@ ICCS_2016 <- read_sas("input/data/isgchlc3.sas7bdat")
 
 PACES_2019 <- read_excel("input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+posoct.xlsx")
 
-frecuencias <- table(PACES_2019$FECHA2)
-view(frecuencias)
-
-
 #PACES_2019 <- PACES_2019 %>% 
   #filter(!as.Date(FECHA2) %in% as.Date(c("2019-10-20", "2019-10-29", "2019-11-05",
                                          #"2019-11-07", "2019-11-11", "2019-11-12", 
@@ -38,7 +34,7 @@ view(frecuencias)
 #frecuencias <- table(PACES_2019$FECHA2)
 #view(frecuencias)
 
-#Recodificación-----------------------------------------------------------------
+#SELECCIÓN VARIABLES-----------------------------------------------------------------
 
 #Preguntas N= Aula abierta
  #N1= Libertad de disernir
@@ -65,6 +61,7 @@ view(frecuencias)
   #P5= Participar de una Asamblea
   #P6= Ser candidato
 
+#### CIVED 1999------------------------------------------------------------------
 proc_CIVED_1999 <- CIVED_1999 %>% 
   dplyr::select(id = ID,
                 id_colegio = IDSCHOOL,
@@ -85,7 +82,7 @@ proc_CIVED_1999 <- CIVED_1999 %>%
                 WGTFAC1,
                 Sexo = ITSEX) 
 
-#-------------------------------------------------------------------------------
+#### ICCS 2009---------------------------------------------------------------------
 
 proc_ICCS_2009 <- ICCS_2009 %>% 
   dplyr::select(id = IDSTUD,
@@ -114,7 +111,7 @@ proc_ICCS_2009 <- ICCS_2009 %>%
                 Sexo = SGENDER,
                 NISB) 
 
-#-------------------------------------------------------------------------------
+#### ICCS 2016 --------------------------------------------------------------------
 
 proc_ICCS_2016 <- ICCS_2016 %>% 
   dplyr::select(id = IDSTUD,
@@ -144,7 +141,7 @@ proc_ICCS_2016 <- ICCS_2016 %>%
                 Sexo = S_GENDER,
                 S_NISB) 
 
-#-------------------------------------------------------------------------------
+#### PACES 2019-------------------------------------------------------------------------------
 
 proc_PACES_2019 <- PACES_2019 %>% 
   dplyr::select(id = FOLIO,
@@ -170,15 +167,32 @@ proc_PACES_2019 <- PACES_2019 %>%
                 Dependencia,
                 Region = REGION) 
 
-#Construcción peso muestral de la escuela---------------------------------------
+#### Pesos muestrales-----------------------------------------------------------
 
 
 proc_CIVED_1999 <- proc_CIVED_1999 %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1)
 proc_ICCS_2009  <- proc_ICCS_2009  %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1S)
 proc_ICCS_2016  <- proc_ICCS_2016  %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1S)
 
+# LIMPIEZA DE DATOS-------------------------------------------------------------
 
-#Homologación de variable SEXO--------------------------------------------------
+### PACES 2019------------------------------------------------------------------
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(M1, M2, M3, N1, N3, N5, N7, N8, N9, P3, P5, P6), 
+                ~replace(., . %in% c(5, 8, 9), NA)))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(libro,
+                  Nive_educ_madre, Nive_educ_padre), 
+                ~replace(., . %in% c(8, 9), NA)))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(M1, M2, M3), 
+                ~replace(., . %in% c(4), NA)))
+
+# HOMOLOGACIÓN VARIABLES--------------------------------------------------------
+
+### Sexo------------------------------------------------------------------------
 
 #Categorias generales
 # 0 = Mujer
@@ -202,9 +216,7 @@ proc_PACES_2019 <- proc_PACES_2019 %>%  mutate (Sexo = case_match(Sexo,
                                                                    3 ~ NA)) # 3 = Otro
 
 
-#Homologación y limpieza de variables-------------------------------------------
-#Homologación libros------------------------------------------------------------
-
+### Libros----------------------------------------------------------------------
 #Categorias de repuesta cantidad de libros
  # 0 =0-10 libros 
  # 1 =11-100 libros
@@ -227,131 +239,51 @@ proc_PACES_2019$libro <- car::recode(proc_PACES_2019$libro,
                                      "1=0; 2=1; 3=1; 4=2; 5=3; 6=3",
                                      as.numeric = TRUE)
 
+# Recodificar Libro como Dummy: Más de 10 libros 
 
-#Homologación Voto--------------------------------------------------------------
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1)) 
 
-proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(across(c(M1, M2, M3, N1, N3, N5, N7, N8, N9, P3, P5, P6), 
-                ~replace(., . %in% c(5, 8, 9), NA)))
+proc_ICCS_2009<- proc_ICCS_2009 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
 
-proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(across(c(libro,
-                  Nive_educ_madre, Nive_educ_padre), 
-                ~replace(., . %in% c(8, 9), NA)))
+proc_ICCS_2016<- proc_ICCS_2016 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
 
-proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(across(c(M1, M2, M3), 
-                ~replace(., . %in% c(4), NA)))
+proc_PACES_2019<- proc_PACES_2019 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
 
-# CIVED y ICCS (Categorias de respuesta)
- #1= Yo desde luego no haría esto.
- #2= Yo probablemente no haría esto.
- #3= Yo probablemente haría esto.
- #4= Sin duda lo haría.
 
-proc_CIVED_1999 <- proc_CIVED_1999 %>%
-  mutate(across(c(M1, M2), ~ 5 - .)) #Para reordenar categorias de no probable a probable 
-
-proc_ICCS_2009 <- proc_ICCS_2009 %>%
-  mutate(across(c(M1, M2, M3), ~ 5 - .))
-
-proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  mutate(across(c(M1, M2, M3), ~ 5 - .))
-
+### Voto--------------------------------------------------------------------
 
 # PACES (Categorias de respuesta)
- #1=Seguro no haré esto
- #2=Tal vez haré esto
- #3=Seguro haré esto
+#1=Seguro no haré esto
+#2=Tal vez haré esto
+#3=Seguro haré esto
 
+# CIVED y ICCS (Categorias de respuesta)
+#1= Yo desde luego no haría esto.
+#2= Yo probablemente no haría esto.
+#3= Yo probablemente haría esto.
+#4= Sin duda lo haría.
 
-#Homologación Nivel educacioneal de los padres----------------------------------
+#Homologación final
+#0 = No intención de voto
+#1 = si tiene intención de voto
 
-#Categorias de respuestas
- #0=Básica incompleta o menos
- #1=Básica completa
- #2=Media completa
- #3=Terciaria Técnica
- #4=Universitaria / Postgrado
+# Reordenar orientación: Mnos probable a más probable
 
-# Homologación nivel educacional de la madre--------------
-
-proc_CIVED_1999$nivel_educ <- car::recode(proc_CIVED_1999$nivel_educ, 
-                                     "1=0; 2=1; 3=2; 4=2; 5=3; 6=4; 7=4",
-                                     as.numeric = TRUE)
-
-proc_ICCS_2009$Nive_educ_madre <- car::recode(proc_ICCS_2009$Nive_educ_madre, 
-                                    "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
-                                    as.numeric = TRUE)
-
-proc_ICCS_2016$Nive_educ_madre <- car::recode(proc_ICCS_2016$Nive_educ_madre, 
-                                    "5=0; 4=1; 3=2; 2=3; 1=4",
-                                    as.numeric = TRUE)
-
-proc_PACES_2019$Nive_educ_madre <- car::recode(proc_PACES_2019$Nive_educ_madre, 
-                                     "1=0; 2=1; 3=2; 4=3; 5=4",
-                                     as.numeric = TRUE)
-
-#Homologación nivel educacional del padre---------------------------------------
-
-proc_ICCS_2009$Nive_educ_padre <- car::recode(proc_ICCS_2009$Nive_educ_padre, 
-                                              "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
-                                              as.numeric = TRUE)
-
-proc_ICCS_2016$Nive_educ_padre <- car::recode(proc_ICCS_2016$Nive_educ_padre, 
-                                              "5=0; 4=1; 3=2; 2=3; 1=4",
-                                              as.numeric = TRUE)
-
-proc_PACES_2019$Nive_educ_padre <- car::recode(proc_PACES_2019$Nive_educ_padre, 
-                                               "1=0; 2=1; 3=2; 4=3; 5=4",
-                                               as.numeric = TRUE)
-
-#Tomamos en consideración el nivel mayor entre el padre y la madre--------------
-
-proc_ICCS_2009 <- proc_ICCS_2009 %>%
-  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
-  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
-
-proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
-  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
-
-proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
-  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
-
-#Indice voto est----------------------------------------------------------------
-
-# 1. CIVED 1999 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
-  mutate(
-    indice_voto_prom = rowMeans(select(., M1, M2), na.rm = FALSE),
-    indice_voto_std  = (indice_voto_prom - 1) / (4 - 1),
-    indice_voto_std = 1 - indice_voto_std
-  )
+  mutate(across(c(M1, M2), ~ 5 - .)) 
 
-# 2. ICCS 2009 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
-  mutate(
-    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE),
-    indice_voto_std = (indice_voto - 1) / (4 - 1)
-  )
+  mutate(across(c(M1, M2, M3), ~ 5 - .))
 
-# 3. ICCS 2016 (escala 1 a 4) -> rango = 4 - 1 = 3
 proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  mutate(
-    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE),
-    indice_voto_std = (indice_voto - 1) / (4 - 1)
-  )
+  mutate(across(c(M1, M2, M3), ~ 5 - .))
 
-# 4. PACES 2019 (escala 1 a 3) -> rango = 3 - 1 = 2
-proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(
-    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE),
-    indice_voto_std = (indice_voto - 1) / (3 - 1)
-  )
 
-#Indice de participación (expectativa de voto)----------------------------------
+# Convertir la variable voto en una Dummy
 
 proc_CIVED_1999 <- proc_CIVED_1999 %>% 
   mutate(M1 = case_match(M1, 
@@ -416,32 +348,125 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
                          2 ~ 1,
                          3 ~ 1))
 
-# articulación del indice con dicotomización--------------------------------------------------------------
+###Nivel educ. padres------------------------------------------------------------
 
+#Categorias de respuestas
+ #0=Básica incompleta o menos
+ #1=Básica completa
+ #2=Media completa
+ #3=Terciaria Técnica
+ #4=Universitaria / Postgrado
 
-# 1. CIVED 1999 (escala 1 a 4) -> rango = 4 - 1 = 3
+##### Madre---------------------------------------------------------------------
+
+proc_CIVED_1999$nivel_educ <- car::recode(proc_CIVED_1999$nivel_educ, 
+                                     "1=0; 2=1; 3=2; 4=2; 5=3; 6=4; 7=4",
+                                     as.numeric = TRUE)
+
+proc_ICCS_2009$Nive_educ_madre <- car::recode(proc_ICCS_2009$Nive_educ_madre, 
+                                    "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
+                                    as.numeric = TRUE)
+
+proc_ICCS_2016$Nive_educ_madre <- car::recode(proc_ICCS_2016$Nive_educ_madre, 
+                                    "5=0; 4=1; 3=2; 2=3; 1=4",
+                                    as.numeric = TRUE)
+
+proc_PACES_2019$Nive_educ_madre <- car::recode(proc_PACES_2019$Nive_educ_madre, 
+                                     "1=0; 2=1; 3=2; 4=3; 5=4",
+                                     as.numeric = TRUE)
+
+##### Padre---------------------------------------------------------------------
+
+proc_ICCS_2009$Nive_educ_padre <- car::recode(proc_ICCS_2009$Nive_educ_padre, 
+                                              "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
+                                              as.numeric = TRUE)
+
+proc_ICCS_2016$Nive_educ_padre <- car::recode(proc_ICCS_2016$Nive_educ_padre, 
+                                              "5=0; 4=1; 3=2; 2=3; 1=4",
+                                              as.numeric = TRUE)
+
+proc_PACES_2019$Nive_educ_padre <- car::recode(proc_PACES_2019$Nive_educ_padre, 
+                                               "1=0; 2=1; 3=2; 4=3; 5=4",
+                                               as.numeric = TRUE)
+
+##### Mayor entre ambos----------------------------------------------------------
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+# Recodificar Nivel educ como Dummy: Educ. superior = 1 (ref. no educ, superior)
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate (nivel_educ  = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1)) 
+
+proc_ICCS_2009<- proc_ICCS_2009 %>% 
+  mutate (nivel_educ  = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_ICCS_2016<- proc_ICCS_2016 %>% 
+  mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_PACES_2019<- proc_PACES_2019 %>% 
+  mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+#CONSTRUCCIÓN DE VARIABLES------------------------------------------------------
+
+#### Voto------------------------------------
+
+# CIVED 1999 
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
   mutate(
     indice_voto = rowSums(select(., M1, M2), na.rm = TRUE)
   )
 
-# 2. ICCS 2009 (escala 1 a 4) -> rango = 4 - 1 = 3
+# ICCS 2009 
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
   mutate(
-    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE)
+    indice_voto = rowSums(select(., M1, M2, M3), na.rm = TRUE)
   )
 
-# 3. ICCS 2016 (escala 1 a 4) -> rango = 4 - 1 = 3
+# ICCS 2016 
 proc_ICCS_2016 <- proc_ICCS_2016 %>%
   mutate(
-    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE)
+    indice_voto = rowSums(select(., M1, M2, M3), na.rm = TRUE)
   )
 
-# 4. PACES 2019 (escala 1 a 3) -> rango = 3 - 1 = 2
+# PACES 2019 
 proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(
-    indice_voto = rowMeans(select(., M1, M2, M3), na.rm = TRUE)
+    indice_voto = rowSums(select(., M1, M2, M3), na.rm = TRUE)
   )
+
+#Dicotomización final
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+proc_ICCS_2016 <- proc_ICCS_2016  %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  mutate(
+    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
+  )
+
 
 #Homologación participación dentro de la escuela--------------------------------
 
@@ -739,60 +764,7 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
     indice_voto = ifelse(indice_voto == 4 | round(indice_voto, 6) == 3.666667, NA, indice_voto)
   )
 
-#Recodificar expectativa de voto com dummy--------------------------------------
-
-proc_CIVED_1999 <- proc_CIVED_1999 %>% 
-  mutate(
-    indice_voto = (max(indice_voto, na.rm = TRUE) + min(indice_voto, na.rm = TRUE)) - indice_voto
-  )
-
-proc_CIVED_1999 <- proc_CIVED_1999 %>% 
-  mutate(
-    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
-  )
-
-proc_ICCS_2009 <- proc_ICCS_2009 %>% 
-  mutate(
-    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
-  )
-
-proc_ICCS_2016 <- proc_ICCS_2016  %>% 
-  mutate(
-    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
-  )
-
-proc_PACES_2019 <- proc_PACES_2019 %>% 
-  mutate(
-    voto = if_else(indice_voto == max(indice_voto, na.rm = TRUE), 1, 0)
-  )
-
-# Recodificar Libro como Dummy: Más de 100 libros 
-
-proc_CIVED_1999 <- proc_CIVED_1999 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1)) 
-
-proc_ICCS_2009<- proc_ICCS_2009 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
-                                               
-proc_ICCS_2016<- proc_ICCS_2016 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
-
-proc_PACES_2019<- proc_PACES_2019 %>% 
-  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
-
-# Recodificar Nivel educa de los padres
-
-proc_CIVED_1999 <- proc_CIVED_1999 %>% 
-  mutate (nivel_educ  = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1)) 
-
-proc_ICCS_2009<- proc_ICCS_2009 %>% 
-  mutate (nivel_educ  = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
-
-proc_ICCS_2016<- proc_ICCS_2016 %>% 
-  mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
-
-proc_PACES_2019<- proc_PACES_2019 %>% 
-  mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+#Recodificar expectativa de voto como dummy--------------------------------------
 
 # Renombrar---------------------------------------------------------------------
 
