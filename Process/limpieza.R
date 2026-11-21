@@ -1,9 +1,10 @@
 #Tesis Pregrado
 #Autor: Benjamín Zavala
 #Fecha: 03/02/2026
-#------------------
 
-#Libreria-----------------------------------------------------------------------
+
+
+#LIBRERÍA-----------------------------------------------------------------------
 
 if (!require("pacman")) install.packages("pacman")
 
@@ -15,7 +16,7 @@ pacman::p_load(tidyverse,
                psych,
                readxl)
 
-#Bases de datos-----------------------------------------------------------------
+#BASES DE DATOS-----------------------------------------------------------------
 
 
 CIVED_1999 <- read_sav("input/data/cs_chlf2.sav")
@@ -190,7 +191,7 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(across(c(M1, M2, M3), 
                 ~replace(., . %in% c(4), NA)))
 
-# HOMOLOGACIÓN VARIABLES--------------------------------------------------------
+# HOMOLOGACIÓN ESTUDINATES--------------------------------------------------------
 
 ### Sexo------------------------------------------------------------------------
 
@@ -417,35 +418,87 @@ proc_ICCS_2016<- proc_ICCS_2016 %>%
 proc_PACES_2019<- proc_PACES_2019 %>% 
   mutate (nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
 
+# HOMOLOGACIÓN ESCUELA---------------------------------------------------------
+#### Voto escuela P3-------------------------------------------------------------------------
+proc_ICCS_2009$P3 <- car::recode(proc_ICCS_2009$P3, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_ICCS_2016$P3 <- car::recode(proc_ICCS_2016$P3, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_PACES_2019$P3 <- car::recode(proc_PACES_2019$P3, 
+                                  "1=1; 2=0; 3= NA",
+                                  as.numeric = TRUE)
+#### Asamblea P5-------------------------------------------------------------------------
+
+proc_ICCS_2009$P5 <- car::recode(proc_ICCS_2009$P5, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_ICCS_2016$P5 <- car::recode(proc_ICCS_2016$P5, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_PACES_2019$P5 <- car::recode(proc_PACES_2019$P5, 
+                                  "1=1; 2=0; 3=NA",
+                                  as.numeric = TRUE)
+
+### Aprendizaje voto en la escuela-------------------------------------
+
+proc_CIVED_1999$K7 <- car::recode(proc_CIVED_1999$K7, 
+                                  "1=0; 2=0; 3=1; 4=1",
+                                  as.numeric = TRUE)
+
+proc_ICCS_2016$K7 <- car::recode(proc_ICCS_2016$K7, 
+                                 "1=1; 2=1; 3=0; 4=0",
+                                 as.numeric = TRUE)
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    perp_aprendizaje_voto_esc   = mean(K7, na.rm = TRUE),
+  ) %>%
+  ungroup()
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    perp_aprendizaje_voto_esc     = mean(K7, na.rm = TRUE),
+  ) %>%
+  ungroup()
+
 #CONSTRUCCIÓN DE VARIABLES------------------------------------------------------
 
-#### Voto------------------------------------
+#### Voto-----------------------------------------------------------------------
 
-# CIVED 1999 
+# Escala sumativa
+
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
   mutate(
     indice_voto = rowSums(select(., M1, M2), na.rm = TRUE)
   )
 
-# ICCS 2009 
+
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
   mutate(
     indice_voto = rowSums(select(., M1, M2, M3), na.rm = TRUE)
   )
 
-# ICCS 2016 
+
 proc_ICCS_2016 <- proc_ICCS_2016 %>%
   mutate(
     indice_voto = rowSums(select(., M1, M2, M3), na.rm = TRUE)
   )
 
-# PACES 2019 
+
 proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(
     indice_voto = rowSums(select(., M1, M2, M3), na.rm = TRUE)
   )
 
-#Dicotomización final
+# Dicotomización final
 
 proc_CIVED_1999 <- proc_CIVED_1999 %>% 
   mutate(
@@ -468,61 +521,7 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
   )
 
 
-#Homologación participación dentro de la escuela--------------------------------
-
-
-#P3---------------------------------------------------
-proc_ICCS_2009$P3 <- car::recode(proc_ICCS_2009$P3, 
-                                              "1=1; 2=0; 3=0",
-                                              as.numeric = TRUE)
-
-proc_ICCS_2016$P3 <- car::recode(proc_ICCS_2016$P3, 
-                                 "1=1; 2=0; 3=0",
-                                 as.numeric = TRUE)
-
-proc_PACES_2019$P3 <- car::recode(proc_PACES_2019$P3, 
-                                 "1=1; 2=0; 3= NA",
-                                 as.numeric = TRUE)
-#P5-----------------------------------------------------
-
-proc_ICCS_2009$P5 <- car::recode(proc_ICCS_2009$P5, 
-                                 "1=1; 2=0; 3=0",
-                                 as.numeric = TRUE)
-
-proc_ICCS_2016$P5 <- car::recode(proc_ICCS_2016$P5, 
-                                 "1=1; 2=0; 3=0",
-                                 as.numeric = TRUE)
-
-proc_PACES_2019$P5 <- car::recode(proc_PACES_2019$P5, 
-                                  "1=1; 2=0; 3=NA",
-                                  as.numeric = TRUE)
-
-#Homologación de variable K7 aprendizaje sobre el voto en la escuela
-
-proc_CIVED_1999$K7 <- car::recode(proc_CIVED_1999$K7, 
-                               "1=0; 2=0; 3=1; 4=1",
-                               as.numeric = TRUE)
-
-proc_ICCS_2016$K7 <- car::recode(proc_ICCS_2016$K7, 
-                                 "1=1; 2=1; 3=0; 4=0",
-                                 as.numeric = TRUE)
-
-proc_CIVED_1999 <- proc_CIVED_1999 %>%
-  group_by(id_colegio) %>%
-  mutate(
-    perp_aprendizaje_voto_esc   = mean(K7, na.rm = TRUE),
-  ) %>%
-  ungroup()
-
-proc_ICCS_2016 <- proc_ICCS_2016 %>%
-  group_by(id_colegio) %>%
-  mutate(
-    perp_aprendizaje_voto_esc     = mean(K7, na.rm = TRUE),
-  ) %>%
-  ungroup()
-
-
-#Creación de variables contextuales en proporción de estudiantes---------------
+#### Tasas de participación--------------------------------------------------------
 
 # --- BASE 2: ICCS 2009 ---
 proc_ICCS_2009 <- proc_ICCS_2009 %>%
@@ -551,47 +550,7 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
   ) %>%
   ungroup()
 
-
-#Crombah voto-------------------------------------------------------------------
-
-#CIVED
-
-items_participacion_1999 <- proc_CIVED_1999 %>% 
-  select(M1, M2,)
-
-resultado_alpha_1999 <- psych::alpha(items_participacion_1999)
-
-print(resultado_alpha_1999$total$std.alpha)
-
-#ICCS 2009
-
-items_participacion_2009 <- proc_ICCS_2009 %>% 
-  select(M1, M2, M3)
-
-resultado_alpha_2009 <- psych::alpha(items_participacion_2009)
-
-print(resultado_alpha_2009$total$std.alpha)
-
-#ICCS 2016
-
-items_participacion_2016 <- proc_ICCS_2016 %>% 
-  select(M1, M2, M3)
-
-resultado_alpha_2016 <- psych::alpha(items_participacion_2016)
-
-print(resultado_alpha_2016$total$std.alpha)
-
-#PACES
-
-items_participacion_2019 <- proc_PACES_2019 %>% 
-  select(M1, M2, M3)
-
-resultado_alpha_2019 <- psych::alpha(items_participacion_2019)
-
-print(resultado_alpha_2019$total$std.alpha)
-
-
-#índice de aula abierta---------------------------------------------------------
+#### Clima del aula-------------------------------------------------------------
 
 # CIVED 1999
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
@@ -621,7 +580,7 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
   ungroup()
 
-#Version con variables extra (N1 Y N2 en las bases donde se encuentra)
+#### Clima del aula extendido (N1 Y N2 en las bases donde se encuentra)---------
 
 # CIVED 1999
 proc_CIVED_1999 <- proc_CIVED_1999 %>%
@@ -651,7 +610,47 @@ proc_PACES_2019 <- proc_PACES_2019 %>%
   mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
   ungroup()
 
-#Crombach aula abierta----------------------------------------------------------
+#CRONBACH-----------------------------------------------------------------------
+
+#### Voto-----------------------------------------------------------------------
+
+# CIVED 1999
+
+items_participacion_1999 <- proc_CIVED_1999 %>% 
+  select(M1, M2,)
+
+resultado_alpha_1999 <- psych::alpha(items_participacion_1999)
+
+print(resultado_alpha_1999$total$std.alpha)
+
+# ICCS 2009
+
+items_participacion_2009 <- proc_ICCS_2009 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2009 <- psych::alpha(items_participacion_2009)
+
+print(resultado_alpha_2009$total$std.alpha)
+
+# ICCS 2016
+
+items_participacion_2016 <- proc_ICCS_2016 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2016 <- psych::alpha(items_participacion_2016)
+
+print(resultado_alpha_2016$total$std.alpha)
+
+# PACES 2019 
+
+items_participacion_2019 <- proc_PACES_2019 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2019 <- psych::alpha(items_participacion_2019)
+
+print(resultado_alpha_2019$total$std.alpha)
+
+#### Clima del aula----------------------------------------------------------------
 
 #CIVED
 
@@ -689,9 +688,9 @@ resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
 
-#Crombach aula abierta (versión extendida)----------------------------------------------------------
+#### Clima del aula extendida---------------------------------------------------
 
-#CIVED
+#CIVED 1999
 
 items_aula_1999 <- proc_CIVED_1999 %>% 
   select(N1, N2, N3, N5, N7, N8, N9)
@@ -718,7 +717,7 @@ resultado_aula_2016 <- psych::alpha(items_aula_2016)
 
 print(resultado_aula_2016$total$std.alpha)
 
-#PACES
+#PACES 2019
 
 items_aula_2019 <- proc_PACES_2019 %>% 
   select(N1, N3, N5, N7, N8, N9)
@@ -727,9 +726,9 @@ resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
 
-#Crombach participación escolar-------------------------------------------------
+#### Experiencias escolares-----------------------------------------------------
 
-#ICCS 2009
+# ICCS 2009
 
 items_aula_2009 <- proc_ICCS_2009 %>% 
   select(P3, P5)
@@ -738,7 +737,7 @@ resultado_aula_2009 <- psych::alpha(items_aula_2009)
 
 print(resultado_aula_2009$total$std.alpha)
 
-#ICCS 2016
+# ICCS 2016
 
 items_aula_2016 <- proc_ICCS_2016 %>% 
   select(P3, P5)
@@ -747,7 +746,7 @@ resultado_aula_2016 <- psych::alpha(items_aula_2016)
 
 print(resultado_aula_2016$total$std.alpha)
 
-#PACES
+# PACES 2016
 
 items_aula_2019 <- proc_PACES_2019 %>% 
   select(P3, P5)
@@ -756,26 +755,18 @@ resultado_aula_2019 <- psych::alpha(items_aula_2019)
 
 print(resultado_aula_2019$total$std.alpha)
 
+# RENOMBRAR---------------------------------------------------------------------
 
-#Guardado de base---------------------------------------------------------------
+#### K7 aprendizaje del voto----------------------------------------------------
 
-proc_PACES_2019 <- proc_PACES_2019 %>%
-  mutate(
-    indice_voto = ifelse(indice_voto == 4 | round(indice_voto, 6) == 3.666667, NA, indice_voto)
-  )
-
-#Recodificar expectativa de voto como dummy--------------------------------------
-
-# Renombrar---------------------------------------------------------------------
-
-# K7 aprendizaje del voto
 proc_CIVED_1999 <- proc_CIVED_1999 %>% 
   rename(aprendizaje_voto = K7)
 
 proc_ICCS_2016 <- proc_ICCS_2016 %>%  
   rename (aprendizaje_voto = K7)
 
-# Participación en votaciones escolares
+#### P3 Participación en votaciones escolares-----------------------------------
+
 proc_PACES_2019 <- proc_PACES_2019 %>% 
   rename (participacion_voto = P3)
 
@@ -785,7 +776,7 @@ proc_ICCS_2009 <- proc_ICCS_2009 %>%
 proc_ICCS_2016 <- proc_ICCS_2016 %>%  
   rename (participacion_voto = P3)
 
-# Participación en asambleas 
+#### P5 Participación en asambleas----------------------------------------------
 
 proc_PACES_2019 <- proc_PACES_2019 %>% 
   rename (asamblea = P5)
@@ -796,9 +787,11 @@ proc_ICCS_2009 <- proc_ICCS_2009 %>%
 proc_ICCS_2016 <- proc_ICCS_2016 %>%  
   rename (asamblea = P5)
 
+#CENTRADO VARIABLES-------------------------------------------------------------
 
-# Centra variables individuales en el promedio de su propia escuela (CWC)-------
+#### Individuales media de cada escuale (CWC)-----------------------------------
 
+#Función 
 centrar_en_escuela <- function(datos, variables, id_escuela = "id_colegio") {
   for (var in variables) {
     if (!var %in% names(datos)) next
@@ -809,16 +802,18 @@ centrar_en_escuela <- function(datos, variables, id_escuela = "id_colegio") {
   datos
 }
 
-variables_centrar <- c("indice_aula_ind", "aprendizaje_voto", "participacion_voto", "asamblea")
+variables_centrar <- c("indice_aula_ind", "aprendizaje_voto", "participacion_voto", 
+                       "asamblea")
 
+#Centrado 
 proc_CIVED_1999 <- centrar_en_escuela(proc_CIVED_1999, variables_centrar)
 proc_ICCS_2009  <- centrar_en_escuela(proc_ICCS_2009,  variables_centrar)
 proc_ICCS_2016  <- centrar_en_escuela(proc_ICCS_2016,  variables_centrar)
 proc_PACES_2019 <- centrar_en_escuela(proc_PACES_2019, variables_centrar)
 
-#Centrar a la gran media-------------------------------------------------------
+#### Escuela a la gran media----------------------------------------------------
 
-
+#Función 
 centrar_gran_media <- function(datos, variables, factor = 1, id_escuela = "id_colegio") {
   for (var in variables) {
     if (!var %in% names(datos)) next
@@ -834,33 +829,23 @@ centrar_gran_media <- function(datos, variables, factor = 1, id_escuela = "id_co
 vars_clima <- "clima_aula_escuela"
 vars_prop  <- c("tasa_voto_escuela", "tasa_asamblea_escuela", "perp_aprendizaje_voto_esc")
 
-# Clima: solo centrado (escala 1-4)
-# Proporciones 0-1: centradas y reescaladas x10 (1 unidad = 10 puntos porcentuales)
-proc_CIVED_1999 <- proc_CIVED_1999 %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
-proc_ICCS_2009  <- proc_ICCS_2009  %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
-proc_ICCS_2016  <- proc_ICCS_2016  %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
-proc_PACES_2019 <- proc_PACES_2019 %>% centrar_gran_media(vars_clima)               %>% centrar_gran_media(vars_prop, factor = 10)
+#Centrado
+proc_CIVED_1999 <- proc_CIVED_1999 %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+proc_ICCS_2009  <- proc_ICCS_2009  %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+proc_ICCS_2016  <- proc_ICCS_2016  %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+proc_PACES_2019 <- proc_PACES_2019 %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
 
-
-
-# 2. Guardar las bases en formato .sav------------------------------------------
-# Usamos haven::write_sav para mantener la compatibilidad con SPSS
+#GUARDAR BASES DE DATOS---------------------------------------------------------
 
 saveRDS(proc_CIVED_1999, "output/data_procesada/proc_CIVED_1999.rds")
 saveRDS(proc_ICCS_2009,  "output/data_procesada/proc_ICCS_2009.rds")
 saveRDS(proc_ICCS_2016,  "output/data_procesada/proc_ICCS_2016.rds")
 saveRDS(proc_PACES_2019,  "output/data_procesada/proc_PACES_2019.rds")
 
-
-#Juntar las bases de datos------------------------------------------------------
-
-bases_juntas <- bind_rows(
-  "1999" = proc_CIVED_1999,
-  "2009" = proc_ICCS_2009,
-  "2016" = proc_ICCS_2016,
-  "2019" = proc_PACES_2019,
-  .id = "ano"
-)
 
 
 

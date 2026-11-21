@@ -37,7 +37,6 @@ PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
 
 ```
 
-
 #### Función ANOVA
 
 ```{r}
@@ -218,7 +217,6 @@ anova_CIVED_1999 <- dplyr::bind_rows(
 )
 ```
 
-
 ### ICCS 2009
 
 ```{r}
@@ -362,7 +360,7 @@ M4_f2 <- lmer(
 
 ```
 
-#### Tabla Modelos 
+#### Tabla Modelos
 
 ```{r}
 etiquetas <- c(
@@ -413,7 +411,6 @@ anova_ICCS_2009 <- dplyr::bind_rows(
   comparar_pendiente_aleatoria(M1, M1_b, "ICCS_2009", "nivel_educ")
 )
 ```
-
 
 ### ICCS 2016
 
@@ -791,7 +788,6 @@ M4_f2 <- lmer(
 
 ```
 
-
 #### Tabla Modelos
 
 ```{r}
@@ -844,7 +840,6 @@ anova_PACES_2019 <- dplyr::bind_rows(
 )
 ```
 
-
 #### ANOVA final
 
 ```{r}
@@ -857,4 +852,3 @@ exportar_tabla_efectos(
   here::here("output", "Modelos_indice", "anova_pendientes_aleatorias.docx")
 )
 ```
- 

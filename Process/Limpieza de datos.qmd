@@ -896,24 +896,25 @@ proc_ICCS_2016 <- proc_ICCS_2016 %>%
 
 ```{r}
 
-centrar_en_escuela <- function(datos, variables, id_escuela = "id_colegio") {
-  for (var in variables) {
-    if (!var %in% names(datos)) next
-    
-    media_esc <- ave(datos[[var]], datos[[id_escuela]], FUN = function(x) mean(x, na.rm = TRUE))
-    datos[[paste0(var, "_cwc")]] <- datos[[var]] - media_esc
-  }
-  datos
+centrar_en_escuela2 <- function(datos, variables, id_escuela = "id_colegio"){ 
+  datos %>% 
+    group_by(across(all_of(id_escuela))) %>% 
+    mutate(across(any_of(variables), 
+                  list(est = ~ mean(.x, na.rm = TRUE),
+                       cwc = ~ .x - mean(.x, na.rm = TRUE)),
+                  .names = "{.col}_{.fn}")) %>% 
+    ungroup()
 }
+
 
 variables_centrar <- c("indice_aula_ind", "aprendizaje_voto", "participacion_voto", 
                        "asamblea")
 
 #Centrado 
-proc_CIVED_1999 <- centrar_en_escuela(proc_CIVED_1999, variables_centrar)
-proc_ICCS_2009  <- centrar_en_escuela(proc_ICCS_2009,  variables_centrar)
-proc_ICCS_2016  <- centrar_en_escuela(proc_ICCS_2016,  variables_centrar)
-proc_PACES_2019 <- centrar_en_escuela(proc_PACES_2019, variables_centrar)
+proc_CIVED_1999_2 <- centrar_en_escuela2(proc_CIVED_1999, variables_centrar)
+proc_ICCS_2009_2  <- centrar_en_escuela2(proc_ICCS_2009,  variables_centrar)
+proc_ICCS_2016_2  <- centrar_en_escuela2(proc_ICCS_2016,  variables_centrar)
+proc_PACES_2019_2 <- centrar_en_escuela2(proc_PACES_2019, variables_centrar)
 
 ```
 
@@ -926,8 +927,7 @@ centrar_gran_media <- function(datos, variables, factor = 1, id_escuela = "id_co
   for (var in variables) {
     if (!var %in% names(datos)) next
     x <- as.numeric(datos[[var]])
-    # una fila por escuela (la variable es constante dentro de cada escuela)
-    por_escuela <- tapply(x, datos[[id_escuela]], function(z) z[!is.na(z)][1])
+    por_escuela <- tapply(x, datos[[id_escuela]], function(z) z[!is.na(z)][1]) #Este codigo permite prevenir NA en los promedios
     gran_media  <- mean(por_escuela, na.rm = TRUE)
     datos[[paste0(var, "_gmc")]] <- (x - gran_media) * factor
   }

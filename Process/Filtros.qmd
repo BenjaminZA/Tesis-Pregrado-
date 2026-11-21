@@ -324,5 +324,3 @@ verif <- map_dfr(cohortes, function(co) {
 })
 print(verif, n = Inf)
 ```
-
-
