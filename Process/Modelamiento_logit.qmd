@@ -7,18 +7,9 @@ editor: visual
 ### Librería
 
 ```{r}
-pacman::p_load(tidyverse, 
-               dplyr, 
-               haven, 
-               car, 
-               magrittr,
-               psych,
-               readxl, 
-               fastDummies,
-               stargazer,
-               modelsummary,
-               summarytools,
-               dplyr, lme4, sjPlot, webshot2, htmltools, officer, lmerTest, here, pandoc, fixest, here)
+
+
+pacman::p_load(dplyr, purrr, here, lme4, sjPlot, flextable, officer)
 
 ```
 
@@ -26,13 +17,10 @@ pacman::p_load(tidyverse,
 
 ```{r}
 
-CIVED_1999 <- readRDS("../output/data_procesada/proc_CIVED_1999.rds")
-
-ICCS_2009 <- readRDS("../output/data_procesada/proc_ICCS_2009.rds")
-
-ICCS_2016 <- readRDS("../output/data_procesada/proc_ICCS_2016.rds")
-
-PACES_2019 <- readRDS("../output/data_procesada/proc_PACES_2019.rds")
+CIVED_1999 <- readRDS(here("output", "data_procesada", "proc_CIVED_1999.rds"))
+ICCS_2009  <- readRDS(here("output", "data_procesada", "proc_ICCS_2009.rds"))
+ICCS_2016  <- readRDS(here("output", "data_procesada", "proc_ICCS_2016.rds"))
+PACES_2019 <- readRDS(here("output", "data_procesada", "proc_PACES_2019.rds"))
 
 
 ```
@@ -52,125 +40,35 @@ bases <- lapply(setNames(cohortes, cohortes), function(co)
 ```{r}
 
 comparar_pendiente_aleatoria <- function(m_fijo, m_aleat, cohorte, pendiente) {
-  ll0 <- as.numeric(logLik(m_fijo))
-  ll1 <- as.numeric(logLik(m_aleat))
-  chi <- max(0, 2 * (ll1 - ll0))                       # evita valores negativos por optimización
-
-  # p-value corregido por borde (Stram & Lee, 1994; Snijders & Bosker, 2012)
-  p_mezcla <- if (chi == 0) 1 else
-    0.5 * pchisq(chi, df = 1, lower.tail = FALSE) +
-    0.5 * pchisq(chi, df = 2, lower.tail = FALSE)
-
+  prueba <- anova(m_fijo, m_aleat)
   tibble(
-    Cohorte       = cohorte,
-    Pendiente     = pendiente,
-    AIC_fijo      = AIC(m_fijo),   AIC_aleat    = AIC(m_aleat),
-    BIC_fijo      = BIC(m_fijo),   BIC_aleat    = BIC(m_aleat),
-    logLik_fijo   = ll0,           logLik_aleat = ll1,
-    Chisq         = chi,
-    Df            = 2,                                  # parámetros agregados (nominal)
-    p_valor       = p_mezcla,                           # corregido (mezcla 0.5χ²1 + 0.5χ²2)
-    p_chi2_2gl    = pchisq(chi, df = 2, lower.tail = FALSE),  # ingenuo, solo de referencia
-    singular_aleat = isSingular(m_aleat)
+    Cohorte   = cohorte,
+    Pendiente = pendiente,
+    AIC_fijo  = prueba$AIC[1],  AIC_aleat = prueba$AIC[2],
+    BIC_fijo  = prueba$BIC[1],  BIC_aleat = prueba$BIC[2],
+    Chisq     = prueba$Chisq[2],
+    Df        = prueba$Df[2],
+    p_valor   = prueba$`Pr(>Chisq)`[2],
+    singular  = isSingular(m_aleat)
   )
 }
-
 ```
 
 ### Función tablas de intensidad
 
 ```{r}
-
-library(lme4)
-library(ggeffects)
-library(flextable)
-library(officer)
-library(purrr)
-
-# --- Efecto en puntos porcentuales de una variable (min vs max), igual que antes ---
-efecto_pp <- function(modelo, variable) {
-  pred <- tryCatch(
-    ggpredict(modelo, terms = paste0(variable, " [minmax]")),
-    error = function(e) NULL
-  )
-  if (is.null(pred) || nrow(pred) < 2) return(NA_real_)
-  round((pred$predicted[2] - pred$predicted[1]) * 100, 1)
-}
-
-# --- Detecta las variables "simples" de un modelo (todas las de efecto fijo, sin intercepto ni interacciones) ---
-variables_simples <- function(modelo) {
-  nombres <- names(lme4::fixef(modelo))
-  nombres <- nombres[nombres != "(Intercept)"]
-  nombres[!grepl(":", nombres)]
-}
-
-# --- Tabla de efectos simples: una fila por modelo, una columna por variable presente en ese modelo ---
-tabla_efectos_simple_auto <- function(modelo, nombre_modelo) {
-  vars <- variables_simples(modelo)
-  if (length(vars) == 0) {
-    return(data.frame(Modelo = nombre_modelo))
-  }
-  efectos <- sapply(vars, function(v) efecto_pp(modelo, v))
-  as.data.frame(c(list(Modelo = nombre_modelo), as.list(efectos)))
-}
-
-# --- Detecta el término de interacción de un modelo y separa cuál variable es la "moderadora" (libro/nivel_educ) ---
-detectar_interaccion <- function(modelo) {
-  nombres <- names(lme4::fixef(modelo))
-  termino <- nombres[grepl(":", nombres)]
-  if (length(termino) == 0) return(NULL)
-  partes <- strsplit(termino[1], ":")[[1]]
-
-  moderadoras <- c("libro", "nivel_educ")
-  if (partes[1] %in% moderadoras) {
-    list(contextual = partes[2], moderadora = partes[1])
-  } else {
-    list(contextual = partes[1], moderadora = partes[2])
-  }
-}
-
-# --- Tabla de efectos de interacción: efecto de la variable contextual/centrada en cada nivel del moderador (libro/nivel_educ) ---
-tabla_efectos_interaccion_auto <- function(modelo, nombre_modelo) {
-  info <- detectar_interaccion(modelo)
-  if (is.null(info)) return(data.frame(Modelo = nombre_modelo))
-
-  var_contextual <- info$contextual
-  var_moderadora <- info$moderadora
-
-  pred <- ggpredict(modelo, terms = c(paste0(var_contextual, " [minmax]"), var_moderadora))
-  pred <- as.data.frame(pred)
-  pred <- pred[order(pred$group, pred$x), ]
-
-  grupos <- sort(unique(pred$group))
-  efectos <- sapply(grupos, function(g) {
-    sub <- pred[pred$group == g, ]
-    round((sub$predicted[2] - sub$predicted[1]) * 100, 1)
-  })
-  names(efectos) <- paste0("Efecto_", var_moderadora, grupos, "_pp")
-
-  diferencia <- round(efectos[2] - efectos[1], 1)
-
-  data.frame(
-    Modelo = nombre_modelo,
-    Variable_contextual = var_contextual,
-    Moderador = var_moderadora,
-    as.list(efectos),
-    Diferencia_pp = unname(diferencia)
-  )
-}
-
-# --- Exportar a Word (igual que antes) ---
-exportar_tabla_efectos <- function(tabla, ruta) {
+# Exporta una tabla (data frame) a un archivo Word
+exportar_tabla_word <- function(tabla, ruta) {
   ft <- flextable::flextable(tabla) %>% flextable::theme_box() %>% flextable::autofit()
   doc <- officer::read_docx()
   doc <- flextable::body_add_flextable(doc, ft)
   print(doc, target = ruta)
 }
 
-ruta_intensidad <- here::here("output", "Modelos_logit")
-if (!dir.exists(ruta_intensidad)) dir.create(ruta_intensidad, recursive = TRUE)
-
+ruta_modelos <- here::here("output", "Modelos_logit")
+if (!dir.exists(ruta_modelos)) dir.create(ruta_modelos, recursive = TRUE)
 ```
+
 
 ### Función de convergencia entre bases
 
@@ -1133,8 +1031,8 @@ tabla_anova_pendientes_logit <- dplyr::bind_rows(
   anova_CIVED_1999, anova_ICCS_2009, anova_ICCS_2016, anova_PACES_2019
 )
 
-exportar_tabla_efectos(
+exportar_tabla_word(
   tabla_anova_pendientes_logit,
-  here::here("output", "Modelos_logit", "anova_pendientes_aleatorias_logit.docx")
+  file.path(ruta_modelos, "anova_pendientes_aleatorias_logit.docx")
 )
 ```
