@@ -27,14 +27,14 @@ Al final hay verificaciones que comparan estos resultados con tus tablas de `tab
 
 # 1. Configuración
 
-```{r setup}
-# haven debe estar cargado: las bases traen variables haven_labelled (p. ej. id_colegio) y,
-# sin haven, lme4 no puede convertirlas a factor cuando tidyverse (vctrs) está cargado
+```{r}
 pacman::p_load(tidyverse, haven, lme4, ggeffects, marginaleffects, performance, flextable, officer,
                here, scales, patchwork, rvest, xml2)
+```
 
-# Si en tu sesión hay otros paquetes cargados (p. ej. magrittr, MASS, plyr), pueden "tapar" estas funciones
-# (error típico: "1 argumento dado a 'names<-', que requiere 2" = set_names de magrittr). Se fijan explícitamente:
+
+```{r setup}
+
 set_names <- purrr::set_names
 select    <- dplyr::select
 filter    <- dplyr::filter
@@ -43,7 +43,7 @@ mutate    <- dplyr::mutate
 summarise <- dplyr::summarise
 map       <- purrr::map
 
-REESTIMAR <- TRUE      # TRUE = ignora la caché y reestima todos los modelos
+REESTIMAR <- FALSE      # TRUE = ignora la caché y reestima todos los modelos
 
 dir_proc <- here::here("output", "data_procesada")
 dir_rds  <- here::here("output", "modelos_rds")           # caché de modelos

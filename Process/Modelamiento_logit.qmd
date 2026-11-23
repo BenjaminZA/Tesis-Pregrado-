@@ -73,6 +73,7 @@ if (!dir.exists(ruta_modelos)) dir.create(ruta_modelos, recursive = TRUE)
 ### Función de convergencia entre bases
 
 ```{r}
+
 revisar_modelos <- function() {
   modelos <- mget(ls(pattern = "^M[0-4]", envir = .GlobalEnv), envir = .GlobalEnv)
   purrr::imap_dfr(modelos, function(m, nombre) {
@@ -86,6 +87,7 @@ revisar_modelos <- function() {
     )
   })
 }
+
 ```
 
 ```{r}
