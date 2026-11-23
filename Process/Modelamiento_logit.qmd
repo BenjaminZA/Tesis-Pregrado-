@@ -73,14 +73,19 @@ if (!dir.exists(ruta_modelos)) dir.create(ruta_modelos, recursive = TRUE)
 ### Función de convergencia entre bases
 
 ```{r}
-revisar_modelos <- function(){
-  nombres <- grep("^M[0-4](_[a-h][12]?)?$", ls(envir=.GlobalEnv), value=TRUE)
-  modelos <- mget(nombres, envir=.GlobalEnv)
-  purrr::imap_dfr(modelos, function(m, nombre){
-    msgs <- unlist(m@optinfo$conv$lme4$messages)
-    tibble::tibble(modelo=nombre, nobs=nobs(m), singular=isSingular(m),
-      aviso=if(is.null(msgs)) "ninguno" else paste(substr(msgs,1,120), collapse=" | "),
-      se_min=round(min(summary(m)$coefficients[, "Std. Error"]), 3)) }) }
+revisar_modelos <- function() {
+  modelos <- mget(ls(pattern = "^M[0-4]", envir = .GlobalEnv), envir = .GlobalEnv)
+  purrr::imap_dfr(modelos, function(m, nombre) {
+    avisos <- unlist(m@optinfo$conv$lme4$messages)
+    tibble(
+      modelo   = nombre,
+      nobs     = nobs(m),
+      singular = isSingular(m),
+      aviso    = if (is.null(avisos)) "ninguno" else paste(avisos, collapse = " | "),
+      se_max   = round(max(summary(m)$coefficients[, "Std. Error"]), 3)
+    )
+  })
+}
 ```
 
 ```{r}
@@ -91,6 +96,7 @@ ctrl_bobyqa <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 
 ```{r}
 
+rm(list = ls(pattern = "^M[0-4]"))
 
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
@@ -197,7 +203,10 @@ M4_d2 <- glmer(
 ```
 
 ```{r}
-print(revisar_modelos(), n = Inf, width = Inf)
+conv_CIVED_1999 <- revisar_modelos() %>%
+  mutate(cohorte = "CIVED_1999", .before = 1)
+
+print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
 #### Tabla modelo
@@ -283,6 +292,7 @@ anova_CIVED_1999 <- dplyr::bind_rows(
 
 ```{r}
 
+rm(list = ls(pattern = "^M[0-4]"))
 
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
@@ -424,7 +434,10 @@ M4_f2 <- glmer(
 ```
 
 ```{r}
-print(revisar_modelos(), n = Inf, width = Inf)
+conv_ICCS_2009 <- revisar_modelos() %>%
+  mutate(cohorte = "ICCS_2009", .before = 1)
+
+print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
 #### Tabla modelos
@@ -515,6 +528,7 @@ anova_ICCS_2009 <- dplyr::bind_rows(
 
 ```{r}
 
+rm(list = ls(pattern = "^M[0-4]"))
 
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
@@ -691,7 +705,10 @@ M4_h2 <- glmer(
 ```
 
 ```{r}
-print(revisar_modelos(), n = Inf, width = Inf)
+conv_ICCS_2016 <- revisar_modelos() %>%
+  mutate(cohorte = "ICCS_2016", .before = 1)
+
+print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
 #### Tabla modelos
@@ -791,11 +808,8 @@ anova_ICCS_2016 <- dplyr::bind_rows(
 ### PACES 2019
 
 ```{r}
-ctrl_bobyqa <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
-```
 
-```{r}
-
+rm(list = ls(pattern = "^M[0-4]"))
 
 M0 <- glmer(
   voto ~ 1 + (1 | id_colegio),
@@ -937,7 +951,10 @@ M4_f2 <- glmer(
 ```
 
 ```{r}
-print(revisar_modelos(), n = Inf, width = Inf)
+conv_PACES_2019 <- revisar_modelos() %>%
+  mutate(cohorte = "PACES_2019", .before = 1)
+
+print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
 #### Tabla modelos
@@ -1036,3 +1053,19 @@ exportar_tabla_word(
   file.path(ruta_modelos, "anova_pendientes_aleatorias_logit.docx")
 )
 ```
+
+### Tablas de convergencia
+
+```{r}
+
+tabla_convergencia <- bind_rows(
+  conv_CIVED_1999, conv_ICCS_2009, conv_ICCS_2016, conv_PACES_2019
+)
+
+exportar_tabla_word(
+  tabla_convergencia,
+  file.path(ruta_modelos, "convergencia_modelos_logit.docx")
+)
+
+```
+
