@@ -1,0 +1,968 @@
+---
+title: "Limpieza Datos"
+format: html
+editor: visual
+---
+
+#LIBRERIA
+
+```{r}
+
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(tidyverse, 
+               dplyr, 
+               haven, 
+               car, 
+               magrittr,
+               psych,
+               readxl)
+
+```
+
+#BASES DE DATOS
+
+```{r}
+
+CIVED_1999 <- read_sav("../input/data/cs_chlf2.sav")
+
+ICCS_2009 <- read_sav("../input/data/ISGCHLC2.sav")
+
+ICCS_2016 <- read_sas("../input/data/isgchlc3.sas7bdat")
+
+PACES_2019 <- read_excel("../input/data/Base_Final_Estudiantes_1644_20_01_2020.v2+posoct.xlsx")
+
+#PACES_2019 <- PACES_2019 %>% 
+  #filter(!as.Date(FECHA2) %in% as.Date(c("2019-10-20", "2019-10-29", "2019-11-05",
+                                         #"2019-11-07", "2019-11-11", "2019-11-12", 
+                                         #"2019-11-14", "2019-12-04", "2019-12-05")))
+
+```
+
+#SELECCIÓN VARIABLES
+
+## CIVED 1999
+
+```{r}
+
+#Preguntas N= Aula abierta
+ #N1= Libertad de disernir
+ #N2= Estimulo de desiciones propias
+ #N3= Etimulo a la opinion propia x
+ #N5= Pluralismo entre estudiantes x
+ #N7= Autonomia cognitiva (conversar con distintos puntos de vista) x
+ #N8= Profesores exponen temas desde distintos puntos de vista x
+ #N9= Libertad de disernir con los profesores x
+
+#Preguntas M= Expectativa de voto futuro
+ #M1= Elecciones nacionales
+ #M2= Informarse sobre los candidatos
+ #M3= Elecciones locales
+
+#Preguntas k = Aprendizajes en la escuela
+ #K7= Aprender sobre la importancia del voto
+
+#Preguntas P= Participación dentro de la escuela
+  #P1= Actividad cultural o musical
+  #P2= Participar de un debate organizado
+  #P3= Votar por representantes
+  #P4= Ser parte de las desiciones de la escuela
+  #P5= Participar de una Asamblea
+  #P6= Ser candidato
+
+proc_CIVED_1999 <- CIVED_1999 %>% 
+  dplyr::select(id = ID,
+                id_colegio = IDSCHOOL,
+                libro = CSGBOOK,
+                N1 = CS4N1,
+                N2 = CS4N2,
+                N3 = CS4N3,
+                N5 = CS4N5,
+                N7 = CS4N7,
+                N8 = CS4N8,
+                N9 = CS4N9,
+                M1 = CS5M1,
+                M2 = CS5M2,
+                K7 = CS4K7,
+                nivel_educ = CSGEDUM,
+                Peso_est = TOTWGT,
+                WGTADJ1,
+                WGTFAC1,
+                Sexo = ITSEX) 
+
+```
+
+## ICCS 2009
+
+```{r}
+
+proc_ICCS_2009 <- ICCS_2009 %>% 
+  dplyr::select(id = IDSTUD,
+                id_colegio = IDSCHOOL,
+                libro = IS2G11,
+                N2 = IS2G16B,
+                N3 = IS2G16C,
+                N5 = IS2G16E,
+                N7 = IS2G16F,
+                N8 = IS2G16G,
+                N9 = IS2G16D,
+                M1 = IS2P32B,
+                M2 = IS2P32C,
+                M3 = IS2P32A,
+                P1 = IS2G15A,
+                P2 = IS2G15B,
+                P3 = IS2G15C,
+                P4 = IS2G15D,
+                P5 = IS2G15E,
+                P6 = IS2G15F,
+                Nive_educ_madre = IS2G07,
+                Nive_educ_padre = IS2G09,
+                Peso_est = TOTWGTS,
+                WGTADJ1S,
+                WGTFAC1,
+                Sexo = SGENDER,
+                NISB) 
+
+```
+
+## ICCS 2016
+
+```{r}
+
+proc_ICCS_2016 <- ICCS_2016 %>% 
+  dplyr::select(id = IDSTUD,
+                id_colegio = IDSCHOOL,
+                libro = IS3G11,
+                N2 = IS3G17A,
+                N3 = IS3G17B,
+                N5 = IS3G17D,
+                N7 = IS3G17E,
+                N8 = IS3G17F,
+                N9 = IS3G17C,
+                M1 = IS3G31B,
+                M2 = IS3G31C,
+                M3 = IS3G31A,
+                K7 = IS3G18A,
+                P1 = IS3G16G,
+                P2 = IS3G16A,
+                P3 = IS3G16B,
+                P4 = IS3G16C,
+                P5 = IS3G16D,
+                P6 = IS3G16E,
+                Nive_educ_madre = IS3G07,
+                Nive_educ_padre = IS3G09,
+                Peso_est = TOTWGTS,
+                WGTADJ1S,
+                WGTFAC1,
+                Sexo = S_GENDER,
+                S_NISB) 
+
+```
+
+## PACES 2019
+
+```{r}
+
+proc_PACES_2019 <- PACES_2019 %>% 
+  dplyr::select(id = FOLIO,
+                id_colegio = RBD,
+                libro = P68,
+                N1 = P49A,
+                N3 = P49B,
+                N5 = P49D,
+                N7 = P49E,
+                N8 = P49F,
+                N9 = P49C,
+                M1 = P31B,
+                M2 = P31C,
+                M3 = P31A,
+                P3 = P30A,
+                P5 = P30E,
+                P6 = P30B,
+                Nive_educ_madre = P67,
+                Nive_educ_padre = P66,
+                Peso_est = pond_estudiante_reg_dep_tens,
+                Peso_esc = pond_esc_reg_dep_tens,
+                Sexo = P58,
+                Dependencia,
+                Region = REGION) 
+
+```
+
+## Pesos muestrales
+
+```{r}
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1)
+proc_ICCS_2009  <- proc_ICCS_2009  %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1S)
+proc_ICCS_2016  <- proc_ICCS_2016  %>% mutate(Peso_esc = WGTFAC1 * WGTADJ1S)
+
+```
+
+# LIMPIEZA NA
+
+```{r}
+
+### PACES 2019
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(M1, M2, M3, N1, N3, N5, N7, N8, N9, P3, P5, P6), 
+                ~replace(., . %in% c(5, 8, 9), NA)))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(libro,
+                  Nive_educ_madre, Nive_educ_padre), 
+                ~replace(., . %in% c(8, 9), NA)))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(across(c(M1, M2, M3), 
+                ~replace(., . %in% c(4), NA)))
+
+```
+
+# HOMOLOGACIÓN ESTUDIANTES
+
+## Sexo
+
+```{r}
+
+#Categorias generales
+# 0 = Mujer
+# 1 = Hombre
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% mutate (Sexo = case_match(Sexo, 
+                                                         1 ~ 1, # 1 = Hombre
+                                                         2 ~ 0)) # 2 = Mujer
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%  mutate (Sexo = case_match(Sexo,
+                                                               0 ~ 1, # 0 = Hombre
+                                                               1 ~ 0)) # 1 = Mujer
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>% mutate (Sexo = case_match(Sexo, 
+                                                               0 ~ 0, # 0 = Mujer
+                                                               1 ~ 1)) # 1 = Hombre
+
+proc_PACES_2019 <- proc_PACES_2019 %>%  mutate (Sexo = case_match(Sexo, 
+                                                                   1 ~ 1, # 1 = Hombre
+                                                                   2 ~ 0, # 2 = Mujer
+                                                                   3 ~ NA)) # 3 = Otro
+
+```
+
+## Voto
+
+```{r}
+
+# PACES (Categorias de respuesta)
+#1=Seguro no haré esto
+#2=Tal vez haré esto
+#3=Seguro haré esto
+
+# CIVED (Categorias de respuesta originales)
+#1= Yo desde luego no haría esto.
+#2= Yo probablemente no haría esto.
+#3= Yo probablemente haría esto.
+#4= Sin duda lo haría.
+#0= No sabe; 8= No administrado; 9= Perdido (quedan como NA)
+
+# ICCS (Categorias de respuesta originales)
+#1= Sin duda lo haría.
+#2= Yo probablemente haría esto.
+#3= Yo probablemente no haría esto.
+#4= Yo desde luego no haría esto.
+#7= Inválido; 9= Omitido (quedan como NA)
+
+#Homologación final
+#0 = No intención de voto
+#1 = si tiene intención de voto
+
+# Reordenar orientación: Menos probable a más probable
+# CIVED ya está ordenada de menos a más probable, no se invierte
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(across(c(M1, M2, M3), ~ 5 - .))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(across(c(M1, M2, M3), ~ 5 - .))
+
+
+# Convertir la variable voto en una Dummy
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1))
+
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M3 = case_match(M3,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1))
+
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1)) %>% 
+  mutate(M3 = case_match(M3,
+                         1 ~ 0,
+                         2 ~ 0,
+                         3 ~ 1,
+                         4 ~ 1))
+
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  mutate(M1 = case_match(M1, 
+                         1 ~ 0,
+                         2 ~ 1,
+                         3 ~ 1)) %>% 
+  mutate(M2 = case_match(M2,
+                         1 ~ 0,
+                         2 ~ 1,
+                         3 ~ 1)) %>% 
+  mutate(M3 = case_match(M3,
+                         1 ~ 0,
+                         2 ~ 1,
+                         3 ~ 1))
+
+```
+
+## Nivel educ. padres
+
+### Madre
+
+```{r}
+#Categorias de respuestas
+ #0=Básica incompleta o menos
+ #1=Básica completa
+ #2=Media completa
+ #3=Terciaria Técnica
+ #4=Universitaria / Postgrado
+
+
+proc_CIVED_1999$nivel_educ <- car::recode(proc_CIVED_1999$nivel_educ, 
+                                     "1=0; 2=1; 3=2; 4=2; 5=3; 6=4; 7=4",
+                                     as.numeric = TRUE)
+
+proc_ICCS_2009$Nive_educ_madre <- car::recode(proc_ICCS_2009$Nive_educ_madre, 
+                                    "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
+                                    as.numeric = TRUE)
+
+proc_ICCS_2016$Nive_educ_madre <- car::recode(proc_ICCS_2016$Nive_educ_madre, 
+                                    "5=0; 4=1; 3=2; 2=3; 1=4",
+                                    as.numeric = TRUE)
+
+proc_PACES_2019$Nive_educ_madre <- car::recode(proc_PACES_2019$Nive_educ_madre, 
+                                     "1=0; 2=1; 3=2; 4=3; 5=4",
+                                     as.numeric = TRUE)
+
+```
+
+### Padre
+
+```{r}
+
+proc_ICCS_2009$Nive_educ_padre <- car::recode(proc_ICCS_2009$Nive_educ_padre, 
+                                              "6=0; 5=1; 3=2; 4=2; 2=3; 1=4",
+                                              as.numeric = TRUE)
+
+proc_ICCS_2016$Nive_educ_padre <- car::recode(proc_ICCS_2016$Nive_educ_padre, 
+                                              "5=0; 4=1; 3=2; 2=3; 1=4",
+                                              as.numeric = TRUE)
+
+proc_PACES_2019$Nive_educ_padre <- car::recode(proc_PACES_2019$Nive_educ_padre, 
+                                               "1=0; 2=1; 3=2; 4=3; 5=4",
+                                               as.numeric = TRUE)
+
+```
+
+### Mayor entre ambos
+
+```{r}
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(nivel_educ = pmax(Nive_educ_madre, Nive_educ_padre, na.rm = TRUE)) %>%
+  mutate(nivel_educ = ifelse(is.infinite(nivel_educ), NA, nivel_educ))
+
+```
+
+### Dicotomización
+
+```{r}
+
+# Educación superior = 1 (técnica o universitaria); 0 = media completa o menos
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(nivel_educ = case_when(nivel_educ < 3 ~ 0, nivel_educ > 2 ~ 1))
+
+```
+
+# Libros
+
+```{r}
+
+#Categorias de repuesta cantidad de libros
+ # 0 =0-10 libros 
+ # 1 =11-100 libros
+ # 2 =101-200 libros
+ # 3 =Más de 200 libros
+    
+proc_CIVED_1999$libro <- car::recode(proc_CIVED_1999$libro, 
+                                      "1=0; 2=0; 3=1; 4=1; 5=2; 6=3",
+                                      as.numeric = TRUE)
+
+proc_ICCS_2009$libro <- car::recode(proc_ICCS_2009$libro, 
+                                     "1=0; 2=1; 3=1; 4=2; 5=3; 6=3",
+                                     as.numeric = TRUE)
+
+proc_ICCS_2016$libro <- car::recode(proc_ICCS_2016$libro, 
+                                     "1=0; 2=1; 3=1; 4=2; 5=3",
+                                     as.numeric = TRUE)
+
+proc_PACES_2019$libro <- car::recode(proc_PACES_2019$libro, 
+                                     "1=0; 2=1; 3=1; 4=2; 5=3; 6=3",
+                                     as.numeric = TRUE)
+
+# Recodificar Libro como Dummy: Más de 10 libros 
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1)) 
+
+proc_ICCS_2009<- proc_ICCS_2009 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+
+proc_ICCS_2016<- proc_ICCS_2016 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+
+proc_PACES_2019<- proc_PACES_2019 %>% 
+  mutate (libro = case_when(libro < 1 ~ 0, libro > 0 ~ 1))
+
+```
+
+# HOMOLOGACIÓN ESCUELA
+
+## Voto escuela P3
+
+```{r}
+#Categorías homologadas (¿participa en la actividad?)
+# 1 = Si 
+# 0 = No 
+
+proc_ICCS_2009$P3 <- car::recode(proc_ICCS_2009$P3, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_ICCS_2016$P3 <- car::recode(proc_ICCS_2016$P3, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_PACES_2019$P3 <- car::recode(proc_PACES_2019$P3, 
+                                  "1=1; 2=0; 3= NA",
+                                  as.numeric = TRUE)
+
+```
+
+## Asamblea P5
+
+```{r}
+
+#Categorías homologadas (¿participa en la actividad?)
+# 1 = Si 
+# 0 = No 
+
+proc_ICCS_2009$P5 <- car::recode(proc_ICCS_2009$P5, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_ICCS_2016$P5 <- car::recode(proc_ICCS_2016$P5, 
+                                 "1=1; 2=0; 3=0",
+                                 as.numeric = TRUE)
+
+proc_PACES_2019$P5 <- car::recode(proc_PACES_2019$P5, 
+                                  "1=1; 2=0; 3=NA",
+                                  as.numeric = TRUE)
+
+```
+
+## Aprendizaje voto K7
+
+```{r}
+
+#Categorías homologadas (percepción dicotomizada)
+# 1 = Si 
+# 0 = No 
+
+proc_CIVED_1999$K7 <- car::recode(proc_CIVED_1999$K7, 
+                                  "1=0; 2=0; 3=1; 4=1",
+                                  as.numeric = TRUE)
+
+proc_ICCS_2016$K7 <- car::recode(proc_ICCS_2016$K7, 
+                                 "1=1; 2=1; 3=0; 4=0",
+                                 as.numeric = TRUE)
+
+```
+
+# CONSTRUCCIÓN DE VARIABLES
+
+## Voto
+
+```{r}
+
+# Escala sumativa (NA si falta algún ítem)
+# Dicotomización final: 1 = intención de voto en todos los ítems
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(
+    indice_voto = rowSums(select(., M1, M2)),
+    voto        = if_else(indice_voto == 2, 1, 0)
+  )
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(
+    indice_voto = rowSums(select(., M1, M2, M3)),
+    voto        = if_else(indice_voto == 3, 1, 0)
+  )
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(
+    indice_voto = rowSums(select(., M1, M2, M3)),
+    voto        = if_else(indice_voto == 3, 1, 0)
+  )
+
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(
+    indice_voto = rowSums(select(., M1, M2, M3)),
+    voto        = if_else(indice_voto == 3, 1, 0)
+  )
+
+```
+
+## Tasas de participación / percepción
+
+```{r}
+
+# CIVED 1999
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    perp_aprendizaje_voto_esc   = mean(K7, na.rm = TRUE),
+  ) %>%
+  ungroup()
+
+# ICCS 2009
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    tasa_voto_escuela     = mean(P3, na.rm = TRUE),
+    tasa_asamblea_escuela = mean(P5, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# ICCS 2016 
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    tasa_voto_escuela     = mean(P3, na.rm = TRUE),
+    tasa_asamblea_escuela = mean(P5, na.rm = TRUE),
+    perp_aprendizaje_voto_esc   = mean(K7, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+#  PACES 2019 
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  group_by(id_colegio) %>%
+  mutate(
+    tasa_voto_escuela     = mean(P3, na.rm = TRUE),
+    tasa_asamblea_escuela = mean(P5, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+```
+
+## Clima del aula
+
+```{r}
+
+# CIVED 1999
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+# ICCS 2009
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+# ICCS 2016
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+# PACES 2019
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(indice_aula_ind = rowMeans(select(., N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela = mean(indice_aula_ind, na.rm = TRUE)) %>%
+  ungroup()
+
+```
+
+### Clima del aula extendida
+
+(incluye N1 y N2) en algunas cohortes
+
+```{r}
+
+# CIVED 1999
+proc_CIVED_1999 <- proc_CIVED_1999 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N1, N2, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+# ICCS 2009
+proc_ICCS_2009 <- proc_ICCS_2009 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+# ICCS 2016
+proc_ICCS_2016 <- proc_ICCS_2016 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N2, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+# PACES 2019
+proc_PACES_2019 <- proc_PACES_2019 %>%
+  mutate(indice_aula_ind_ext = rowMeans(select(., N1, N3, N5, N7, N8, N9), na.rm = TRUE)) %>%
+  group_by(id_colegio) %>%
+  mutate(clima_aula_escuela_ext = mean(indice_aula_ind_ext, na.rm = TRUE)) %>%
+  ungroup()
+
+```
+
+# CRONBACH
+
+## Voto
+
+```{r}
+
+# CIVED 1999
+
+items_participacion_1999 <- proc_CIVED_1999 %>% 
+  select(M1, M2,)
+
+resultado_alpha_1999 <- psych::alpha(items_participacion_1999)
+
+print(resultado_alpha_1999$total$std.alpha)
+
+# ICCS 2009
+
+items_participacion_2009 <- proc_ICCS_2009 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2009 <- psych::alpha(items_participacion_2009)
+
+print(resultado_alpha_2009$total$std.alpha)
+
+# ICCS 2016
+
+items_participacion_2016 <- proc_ICCS_2016 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2016 <- psych::alpha(items_participacion_2016)
+
+print(resultado_alpha_2016$total$std.alpha)
+
+# PACES 2019 
+
+items_participacion_2019 <- proc_PACES_2019 %>% 
+  select(M1, M2, M3)
+
+resultado_alpha_2019 <- psych::alpha(items_participacion_2019)
+
+print(resultado_alpha_2019$total$std.alpha)
+
+```
+
+## Experiencias escolares
+
+```{r}
+
+# ICCS 2009
+
+items_aula_2009 <- proc_ICCS_2009 %>% 
+  select(P3, P5)
+
+resultado_aula_2009 <- psych::alpha(items_aula_2009)
+
+print(resultado_aula_2009$total$std.alpha)
+
+# ICCS 2016
+
+items_aula_2016 <- proc_ICCS_2016 %>% 
+  select(P3, P5)
+
+resultado_aula_2016 <- psych::alpha(items_aula_2016)
+
+print(resultado_aula_2016$total$std.alpha)
+
+# PACES 2016
+
+items_aula_2019 <- proc_PACES_2019 %>% 
+  select(P3, P5)
+
+resultado_aula_2019 <- psych::alpha(items_aula_2019)
+
+print(resultado_aula_2019$total$std.alpha)
+
+```
+
+## Clima del aula
+
+```{r}
+
+# CIVED 1999
+
+items_aula_1999 <- proc_CIVED_1999 %>% 
+  select(N3, N5, N7, N8, N9)
+
+resultado_aula_1999 <- psych::alpha(items_aula_1999)
+
+print(resultado_aula_1999$total$std.alpha)
+
+# ICCS 2009
+
+items_aula_2009 <- proc_ICCS_2009 %>% 
+  select(N3, N5, N7, N8, N9)
+
+resultado_aula_2009 <- psych::alpha(items_aula_2009)
+
+print(resultado_aula_2009$total$std.alpha)
+
+# ICCS 2016
+
+items_aula_2016 <- proc_ICCS_2016 %>% 
+  select(N3, N5, N7, N8, N9)
+
+resultado_aula_2016 <- psych::alpha(items_aula_2016)
+
+print(resultado_aula_2016$total$std.alpha)
+
+# PACES 2019
+
+items_aula_2019 <- proc_PACES_2019 %>% 
+  select(N3, N5, N7, N8, N9)
+
+resultado_aula_2019 <- psych::alpha(items_aula_2019)
+
+print(resultado_aula_2019$total$std.alpha)
+
+```
+
+### Clima del aula extendida
+
+```{r}
+
+# CIVED 1999
+
+items_aula_1999 <- proc_CIVED_1999 %>% 
+  select(N1, N2, N3, N5, N7, N8, N9)
+
+resultado_aula_1999 <- psych::alpha(items_aula_1999)
+
+print(resultado_aula_1999$total$std.alpha)
+
+# ICCS 2009
+
+items_aula_2009 <- proc_ICCS_2009 %>% 
+  select(N2, N3, N5, N7, N8, N9)
+
+resultado_aula_2009 <- psych::alpha(items_aula_2009)
+
+print(resultado_aula_2009$total$std.alpha)
+
+# ICCS 2016
+
+items_aula_2016 <- proc_ICCS_2016 %>% 
+  select(N2, N3, N5, N7, N8, N9)
+
+resultado_aula_2016 <- psych::alpha(items_aula_2016)
+
+print(resultado_aula_2016$total$std.alpha)
+
+# PACES 2019
+
+items_aula_2019 <- proc_PACES_2019 %>% 
+  select(N1, N3, N5, N7, N8, N9)
+
+resultado_aula_2019 <- psych::alpha(items_aula_2019)
+
+print(resultado_aula_2019$total$std.alpha)
+
+```
+
+# RENOMBRAR
+
+## P3 Participación voto
+
+```{r}
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  rename (participacion_voto = P3)
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%  
+  rename (participacion_voto = P3)
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%  
+  rename (participacion_voto = P3)
+
+```
+
+## P5 Asamblea
+
+```{r}
+
+proc_PACES_2019 <- proc_PACES_2019 %>% 
+  rename (asamblea = P5)
+
+proc_ICCS_2009 <- proc_ICCS_2009 %>%  
+  rename (asamblea= P5)
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%  
+  rename (asamblea = P5)
+
+```
+
+## K7 Aprendizaje voto
+
+```{r}
+
+proc_CIVED_1999 <- proc_CIVED_1999 %>% 
+  rename(aprendizaje_voto = K7)
+
+proc_ICCS_2016 <- proc_ICCS_2016 %>%  
+  rename (aprendizaje_voto = K7)
+
+```
+
+# CENTRADO VARIABLES
+
+## Individuales media de cada escuale (CWC)
+
+```{r}
+
+centrar_en_escuela <- function(datos, variables, id_escuela = "id_colegio"){
+  datos %>% 
+    group_by(across(all_of(id_escuela))) %>% 
+    mutate(across(any_of(variables), 
+                  list(est = ~ mean(.x, na.rm = TRUE),
+                       cwc = ~ .x - mean(.x, na.rm = TRUE)),
+                  .names = "{.col}_{.fn}")) %>% 
+    ungroup()
+}
+
+
+variables_centrar <- c("indice_aula_ind", "aprendizaje_voto", "participacion_voto", 
+                       "asamblea")
+
+#Centrado 
+proc_CIVED_1999 <- centrar_en_escuela(proc_CIVED_1999, variables_centrar)
+proc_ICCS_2009  <- centrar_en_escuela(proc_ICCS_2009,  variables_centrar)
+proc_ICCS_2016  <- centrar_en_escuela(proc_ICCS_2016,  variables_centrar)
+proc_PACES_2019 <- centrar_en_escuela(proc_PACES_2019, variables_centrar)
+
+```
+
+## Escuela a la gran media (GMC)
+
+```{r}
+
+#Función 
+centrar_gran_media <- function(datos, variables, factor = 1, id_escuela = "id_colegio") {
+  for (var in variables) {
+    if (!var %in% names(datos)) next
+    x <- as.numeric(datos[[var]])
+    por_escuela <- tapply(x, datos[[id_escuela]], function(z) z[!is.na(z)][1]) #Este codigo permite prevenir NA en los promedios
+    gran_media  <- mean(por_escuela, na.rm = TRUE)
+    datos[[paste0(var, "_gmc")]] <- (x - gran_media) * factor
+  }
+  datos
+}
+
+vars_clima <- "clima_aula_escuela"
+vars_prop  <- c("tasa_voto_escuela", "tasa_asamblea_escuela", "perp_aprendizaje_voto_esc")
+
+#Centrado
+proc_CIVED_1999 <- proc_CIVED_1999 %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+proc_ICCS_2009  <- proc_ICCS_2009  %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+proc_ICCS_2016  <- proc_ICCS_2016  %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+proc_PACES_2019 <- proc_PACES_2019 %>% centrar_gran_media(vars_clima) %>% 
+  centrar_gran_media(vars_prop, factor = 10)
+
+```
+
+# GUARDAR BASES DE DATOS
+
+```{r}
+
+saveRDS(proc_CIVED_1999, "../output/data_procesada/proc_CIVED_1999.rds")
+saveRDS(proc_ICCS_2009,  "../output/data_procesada/proc_ICCS_2009.rds")
+saveRDS(proc_ICCS_2016,  "../output/data_procesada/proc_ICCS_2016.rds")
+saveRDS(proc_PACES_2019,  "../output/data_procesada/proc_PACES_2019.rds")
+
+```

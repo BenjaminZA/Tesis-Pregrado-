@@ -8,9 +8,7 @@ editor: visual
 
 ```{r}
 
-
-pacman::p_load(dplyr, purrr, here, lme4, sjPlot, flextable, officer)
-
+pacman::p_load(dplyr, purrr, here, haven, lme4, sjPlot, flextable, officer)
 ```
 
 ### Bases de datos
@@ -211,6 +209,18 @@ conv_CIVED_1999 <- revisar_modelos() %>%
 print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
+#### Guardar modelos rds
+
+```{r}
+
+dir.create(here("output", "modelos_rds"), showWarnings = FALSE)
+
+saveRDS(mget(ls(pattern = "^M[0-4]")),
+        here("output", "modelos_rds", "modelos_CIVED_1999.rds"))
+
+```
+
+
 #### Tabla modelo
 
 ```{r}
@@ -248,37 +258,6 @@ tab_model(
   file        = archivo_docx
 )
 
-```
-
-#### Tabla intensidad
-
-```{r}
-modelos_simples_CIVED <- list(
-  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
-  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b
-)
-
-modelos_interaccion_CIVED <- list(
-  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
-  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
-  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
-  "M4_d1" = M4_d1, "M4_d2" = M4_d2
-)
-
-tabla_intensidad_simples_CIVED <- purrr::map_dfr(
-  names(modelos_simples_CIVED),
-  ~ tabla_efectos_simple_auto(modelos_simples_CIVED[[.x]], .x)
-)
-
-tabla_intensidad_interaccion_CIVED <- purrr::map_dfr(
-  names(modelos_interaccion_CIVED),
-  ~ tabla_efectos_interaccion_auto(modelos_interaccion_CIVED[[.x]], .x)
-)
-
-exportar_tabla_efectos(tabla_intensidad_simples_CIVED,
-                        file.path(ruta_intensidad, "intensidad_CIVED_1999_simples.docx"))
-exportar_tabla_efectos(tabla_intensidad_interaccion_CIVED,
-                        file.path(ruta_intensidad, "intensidad_CIVED_1999_interaccion.docx"))
 ```
 
 #### Test ANOVA
@@ -442,6 +421,17 @@ conv_ICCS_2009 <- revisar_modelos() %>%
 print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
+#### Guardar modelos rds
+
+```{r}
+
+dir.create(here("output", "modelos_rds"), showWarnings = FALSE)
+
+saveRDS(mget(ls(pattern = "^M[0-4]")),
+        here("output", "modelos_rds", "modelos_ICCS_2009.rds"))
+
+```
+
 #### Tabla modelos
 
 ```{r}
@@ -482,39 +472,6 @@ tab_model(
   dv.labels   = etiquetas,
   file        = archivo_docx
 )
-```
-
-#### Tabla intensidad
-
-```{r}
-modelos_simples_ICCS_2009 <- list(
-  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
-  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b, "M3_c" = M3_c
-)
-
-modelos_interaccion_ICCS_2009 <- list(
-  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
-  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
-  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
-  "M4_d1" = M4_d1, "M4_d2" = M4_d2,
-  "M4_e1" = M4_e1, "M4_e2" = M4_e2,
-  "M4_f1" = M4_f1, "M4_f2" = M4_f2
-)
-
-tabla_intensidad_simples_ICCS_2009 <- purrr::map_dfr(
-  names(modelos_simples_ICCS_2009),
-  ~ tabla_efectos_simple_auto(modelos_simples_ICCS_2009[[.x]], .x)
-)
-
-tabla_intensidad_interaccion_ICCS_2009 <- purrr::map_dfr(
-  names(modelos_interaccion_ICCS_2009),
-  ~ tabla_efectos_interaccion_auto(modelos_interaccion_ICCS_2009[[.x]], .x)
-)
-
-exportar_tabla_efectos(tabla_intensidad_simples_ICCS_2009,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2009_simples.docx"))
-exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2009,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2009_interaccion.docx"))
 ```
 
 #### Test ANOVA
@@ -713,6 +670,17 @@ conv_ICCS_2016 <- revisar_modelos() %>%
 print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
+#### Guardar modelos rds
+
+```{r}
+
+dir.create(here("output", "modelos_rds"), showWarnings = FALSE)
+
+saveRDS(mget(ls(pattern = "^M[0-4]")),
+        here("output", "modelos_rds", "modelos_ICCS_2016.rds"))
+
+```
+
 #### Tabla modelos
 
 ```{r}
@@ -761,41 +729,6 @@ tab_model(
   file        = archivo_docx
 )
 
-```
-
-#### Tabla intensidad
-
-```{r}
-modelos_simples_ICCS_2016 <- list(
-  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
-  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b, "M3_c" = M3_c, "M3_d" = M3_d
-)
-
-modelos_interaccion_ICCS_2016 <- list(
-  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
-  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
-  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
-  "M4_d1" = M4_d1, "M4_d2" = M4_d2,
-  "M4_e1" = M4_e1, "M4_e2" = M4_e2,
-  "M4_f1" = M4_f1, "M4_f2" = M4_f2,
-  "M4_g1" = M4_g1, "M4_g2" = M4_g2,
-  "M4_h1" = M4_h1, "M4_h2" = M4_h2
-)
-
-tabla_intensidad_simples_ICCS_2016 <- purrr::map_dfr(
-  names(modelos_simples_ICCS_2016),
-  ~ tabla_efectos_simple_auto(modelos_simples_ICCS_2016[[.x]], .x)
-)
-
-tabla_intensidad_interaccion_ICCS_2016 <- purrr::map_dfr(
-  names(modelos_interaccion_ICCS_2016),
-  ~ tabla_efectos_interaccion_auto(modelos_interaccion_ICCS_2016[[.x]], .x)
-)
-
-exportar_tabla_efectos(tabla_intensidad_simples_ICCS_2016,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2016_simples.docx"))
-exportar_tabla_efectos(tabla_intensidad_interaccion_ICCS_2016,
-                        file.path(ruta_intensidad, "intensidad_ICCS_2016_interaccion.docx"))
 ```
 
 #### Test Anova
@@ -959,6 +892,17 @@ conv_PACES_2019 <- revisar_modelos() %>%
 print(conv_CIVED_1999, n = Inf, width = Inf)
 ```
 
+#### Guardar modelos rds
+
+```{r}
+
+dir.create(here("output", "modelos_rds"), showWarnings = FALSE)
+
+saveRDS(mget(ls(pattern = "^M[0-4]")),
+        here("output", "modelos_rds", "modelos_PACES_2019.rds"))
+
+```
+
 #### Tabla modelos
 
 ```{r}
@@ -1001,39 +945,6 @@ tab_model(
   file        = archivo_docx
 )
 
-```
-
-#### Tabla intesidad
-
-```{r}
-modelos_simples_PACES_2019 <- list(
-  "M1" = M1, "M1_a" = M1_a, "M1_b" = M1_b,
-  "M2" = M2, "M3_a" = M3_a, "M3_b" = M3_b, "M3_c" = M3_c
-)
-
-modelos_interaccion_PACES_2019 <- list(
-  "M4_a1" = M4_a1, "M4_b1" = M4_b1,
-  "M4_a2" = M4_a2, "M4_b2" = M4_b2,
-  "M4_c1" = M4_c1, "M4_c2" = M4_c2,
-  "M4_d1" = M4_d1, "M4_d2" = M4_d2,
-  "M4_e1" = M4_e1, "M4_e2" = M4_e2,
-  "M4_f1" = M4_f1, "M4_f2" = M4_f2
-)
-
-tabla_intensidad_simples_PACES_2019 <- purrr::map_dfr(
-  names(modelos_simples_PACES_2019),
-  ~ tabla_efectos_simple_auto(modelos_simples_PACES_2019[[.x]], .x)
-)
-
-tabla_intensidad_interaccion_PACES_2019 <- purrr::map_dfr(
-  names(modelos_interaccion_PACES_2019),
-  ~ tabla_efectos_interaccion_auto(modelos_interaccion_PACES_2019[[.x]], .x)
-)
-
-exportar_tabla_efectos(tabla_intensidad_simples_PACES_2019,
-                        file.path(ruta_intensidad, "intensidad_PACES_2019_simples.docx"))
-exportar_tabla_efectos(tabla_intensidad_interaccion_PACES_2019,
-                        file.path(ruta_intensidad, "intensidad_PACES_2019_interaccion.docx"))
 ```
 
 #### Test ANOVA

@@ -1,0 +1,90 @@
+---
+title: "Tablas y Figuras Multinivel"
+author: "Benjamín Zavala"
+format: html
+editor: visual
+---
+
+
+# Librerías 
+```{r}
+pacman::p_load(dplyr, purrr, here, lme4)
+```
+
+#Configuración 
+
+```{r}
+cohortes <- c("CIVED_1999", "ICCS_2009", "ICCS_2016", "PACES_2019")
+
+etiq <- c(CIVED_1999 = "CIVED 1999", ICCS_2009 = "ICCS 2009",
+          ICCS_2016  = "ICCS 2016",  PACES_2019 = "PACES 2019")
+
+dir_out <- here("output", "modelos_escrito")
+dir.create(dir_out, showWarnings = FALSE, recursive = TRUE)
+```
+
+#Cargar los modelos
+
+```{r}
+MODELOS <- lapply(setNames(cohortes, cohortes), function(co)
+  readRDS(here("output", "modelos_rds", paste0("modelos_", co, ".rds"))))
+```
+
+# ICC
+
+```{r}
+datos_icc <- map_dfr(cohortes, function(co) {
+  m0    <- MODELOS[[co]]$M0
+  tau00 <- as.numeric(VarCorr(m0)$id_colegio)
+  tibble(
+    cohorte = co,
+    tau00   = tau00,
+    icc     = tau00 / (tau00 + pi^2 / 3),
+    n_est   = nobs(m0),
+    n_esc   = ngrps(m0)[["id_colegio"]]
+  )
+})
+
+datos_icc
+```
+
+```{r}
+for (co in cohortes) {
+  d <- readRDS(here("output", "data_procesada", paste0("proc_", co, ".rds")))
+  cat("\n", co, "\n")
+  print(table(d$voto, useNA = "ifany"))
+}
+```
+
+```{r}
+# (a) Escala original de CIVED y de ICCS: ¿qué significa el 1 y el 4?
+CIVED_1999 <- haven::read_sav(here("input", "data", "cs_chlf2.sav"))
+ICCS_2009  <- haven::read_sav(here("input", "data", "ISGCHLC2.sav"))
+attr(CIVED_1999$CS5M1, "labels")
+attr(ICCS_2009$IS2P32B, "labels")
+
+# (b) ¿Qué tienen las bases guardadas hoy?
+d <- readRDS(here("output", "data_procesada", "proc_CIVED_1999.rds"))
+grep("_cwc$|_est$", names(d), value = TRUE)
+table(d$nivel_educ, useNA = "ifany")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
