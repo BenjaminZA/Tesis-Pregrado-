@@ -911,10 +911,10 @@ variables_centrar <- c("indice_aula_ind", "aprendizaje_voto", "participacion_vot
                        "asamblea")
 
 #Centrado 
-proc_CIVED_1999_2 <- centrar_en_escuela2(proc_CIVED_1999, variables_centrar)
-proc_ICCS_2009_2  <- centrar_en_escuela2(proc_ICCS_2009,  variables_centrar)
-proc_ICCS_2016_2  <- centrar_en_escuela2(proc_ICCS_2016,  variables_centrar)
-proc_PACES_2019_2 <- centrar_en_escuela2(proc_PACES_2019, variables_centrar)
+proc_CIVED_1999 <- centrar_en_escuela2(proc_CIVED_1999, variables_centrar)
+proc_ICCS_2009 <- centrar_en_escuela2(proc_ICCS_2009,  variables_centrar)
+proc_ICCS_2016  <- centrar_en_escuela2(proc_ICCS_2016,  variables_centrar)
+proc_PACES_2019 <- centrar_en_escuela2(proc_PACES_2019, variables_centrar)
 
 ```
 

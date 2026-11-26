@@ -8,7 +8,56 @@ editor: visual
 
 # Librerías 
 ```{r}
-pacman::p_load(dplyr, purrr, here, lme4)
+pacman::p_load(dplyr, purrr, tidyr, here, lme4, flextable, officer)
+```
+
+### Funciones
+
+#### Tipo de texto
+
+```{r}
+fmt2   <- function(x) sprintf("%.2f", x) #Escribe numeros con dos decimales
+fmt_sc <- function(x) sub("^0\\.", ".", sprintf("%.2f", x)) # Dos decimales pero sin el 0 inicial
+```
+
+#### Esportar tabla word APA
+
+```{r}
+guardar_tabla_apa <- function(tabla, numero, titulo, nota, archivo, nota_p = TRUE) {
+
+  # 1. Formato de la tabla
+  linea <- fp_border(color = "black", width = 1)
+  ft <- flextable(tabla) %>%
+    font(fontname = "Times New Roman", part = "all") %>%
+    fontsize(size = 10, part = "all") %>%
+    border_remove() %>%
+    hline_top(border = linea, part = "header") %>%
+    hline_bottom(border = linea, part = "header") %>%
+    hline_bottom(border = linea, part = "body") %>%
+    align(j = 1, align = "left", part = "all") %>%
+    align(j = 2:ncol(tabla), align = "center", part = "all") %>%
+    autofit()
+
+  # 2. Estilos de texto
+  t12 <- function(...) fp_text(font.family = "Times New Roman", font.size = 12, ...)
+  t10 <- function(...) fp_text(font.family = "Times New Roman", font.size = 10, ...)
+
+  # 3. Documento Word
+  doc <- read_docx()
+  doc <- body_add_fpar(doc, fpar(ftext(paste("Tabla", numero), t12(bold = TRUE))))
+  doc <- body_add_fpar(doc, fpar(ftext(titulo, t12(italic = TRUE))))
+  doc <- body_add_flextable(doc, ft, align = "left")
+  doc <- body_add_fpar(doc, fpar(ftext("Nota. ", t10(italic = TRUE)), ftext(nota, t10())))
+  if (nota_p) {
+    doc <- body_add_fpar(doc, fpar(
+      ftext("*", t10()), ftext("p", t10(italic = TRUE)), ftext(" < .05. **", t10()),
+      ftext("p", t10(italic = TRUE)), ftext(" < .01. ***", t10()),
+      ftext("p", t10(italic = TRUE)), ftext(" < .001.", t10())))
+  }
+  print(doc, target = file.path(dir_out, archivo))
+
+  ft
+}
 ```
 
 #Configuración 
@@ -48,30 +97,69 @@ datos_icc <- map_dfr(cohortes, function(co) {
 datos_icc
 ```
 
+### Tabla ICC
+
 ```{r}
-for (co in cohortes) {
-  d <- readRDS(here("output", "data_procesada", paste0("proc_", co, ".rds")))
-  cat("\n", co, "\n")
-  print(table(d$voto, useNA = "ifany"))
+tabla_icc <- datos_icc %>%
+  transmute(cohorte         = etiq[cohorte],
+            `ICC`           = fmt_sc(icc),
+            `τ₀₀`           = fmt2(tau00),
+            `N estudiantes` = as.character(n_est),
+            `N escuelas`    = as.character(n_esc)) %>%
+  pivot_longer(-cohorte, names_to = "Indicador") %>%
+  pivot_wider(names_from = cohorte, values_from = value)
+
+nota_icc <- paste0(
+  "ICC = τ₀₀ / (τ₀₀ + π²/3), calculado con el modelo nulo (M0: intercepto aleatorio por escuela, sin predictores) ",
+  "de un modelo logístico multinivel, con todos los casos disponibles de cada cohorte; π²/3 es la varianza residual ",
+  "de la distribución logística. Indica la proporción de la variación en la expectativa de voto (en la escala logit) ",
+  "que se encuentra entre escuelas. τ₀₀ = varianza del intercepto aleatorio.")
+
+guardar_tabla_apa(tabla_icc, "X", "Correlación intraclase (ICC) del modelo nulo, por cohorte",
+                  nota_icc, "tabla_ICC_M0.docx", nota_p = FALSE)
+```
+
+### Estrellas de significancia
+
+```{r}
+estrellas <- function(p) {
+  case_when(p < .001 ~ "***",
+            p < .01  ~ "**",
+            p < .05  ~ "*",
+            TRUE     ~ "")
 }
 ```
 
-```{r}
-# (a) Escala original de CIVED y de ICCS: ¿qué significa el 1 y el 4?
-CIVED_1999 <- haven::read_sav(here("input", "data", "cs_chlf2.sav"))
-ICCS_2009  <- haven::read_sav(here("input", "data", "ISGCHLC2.sav"))
-attr(CIVED_1999$CS5M1, "labels")
-attr(ICCS_2009$IS2P32B, "labels")
 
-# (b) ¿Qué tienen las bases guardadas hoy?
-d <- readRDS(here("output", "data_procesada", "proc_CIVED_1999.rds"))
-grep("_cwc$|_est$", names(d), value = TRUE)
-table(d$nivel_educ, useNA = "ifany")
+#Tabla modelos 
+
+```{r}
+coef_m2 <- map_dfr(cohortes, function(co) {
+  cf <- summary(MODELOS[[co]]$M2)$coefficients
+  tibble(
+    cohorte = co,
+    termino = rownames(cf),
+    est     = cf[, "Estimate"],
+    ee      = cf[, "Std. Error"],
+    p       = cf[, "Pr(>|z|)"]
+  )
+}) %>%
+  mutate(
+    or       = exp(est),
+    lo       = exp(est - 1.96 * ee),
+    hi       = exp(est + 1.96 * ee),
+    estrella = estrellas(p)
+  )
+
+coef_m2
+
 ```
 
+###
 
+```{r}
 
-
+```
 
 
 

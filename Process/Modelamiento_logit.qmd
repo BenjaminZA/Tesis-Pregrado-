@@ -92,6 +92,13 @@ revisar_modelos <- function() {
 ctrl_bobyqa <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 ```
 
+```{r}
+d <- readRDS(here("output", "data_procesada", "proc_CIVED_1999.rds"))
+table(voto = d$voto, useNA = "ifany")
+table(nivel_educ = d$nivel_educ, useNA = "ifany")
+```
+
+
 ### CIVED 1999
 
 ```{r}
