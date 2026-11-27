@@ -8,7 +8,7 @@ editor: visual
 
 # Librerías 
 ```{r}
-pacman::p_load(dplyr, purrr, tidyr, here, lme4, flextable, officer)
+pacman::p_load(dplyr, purrr, tidyr, here, haven, lme4, marginaleffects, performance, flextable, officer, modelsummary)
 ```
 
 ### Funciones
@@ -131,7 +131,7 @@ estrellas <- function(p) {
 ```
 
 
-#Tabla modelos 
+# MODELOS M2
 
 ```{r}
 coef_m2 <- map_dfr(cohortes, function(co) {
@@ -159,8 +159,38 @@ coef_m2
 
 ```{r}
 
+etiquetas_vars <- c(
+  "libro"                  = "Libros en el hogar (muchos)",
+  "nivel_educ"             = "Educación de los padres (universitaria)",
+  "Sexo"                   = "Sexo (hombre)",
+  "indice_aula_ind_cwc"    = "Clima de aula, individual (cwc)",
+  "participacion_voto_cwc" = "Participación en votaciones, individual (cwc)",
+  "asamblea_cwc"           = "Participación en asambleas, individual (cwc)",
+  "aprendizaje_voto_cwc"   = "Aprendizaje sobre el voto, individual (cwc)",
+  "(Intercept)"            = "Intercepto"
+)
+
+fmt_or  <- function(or, lo, hi, est) paste0(fmt2(or), est, " [", fmt2(lo), ", ", fmt2(hi), "]")
+fmt_ame <- function(a, lo, hi) sprintf("%.1f [%.1f, %.1f]", a, lo, hi)
+
 ```
 
+```{r}
+m2 <- setNames(map(cohortes, ~ MODELOS[[.x]]$M2), etiq[cohortes])
+
+tabla5_or <- modelsummary(
+  m2,
+  exponentiate = TRUE,
+  estimate     = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  statistic    = NULL,
+  stars        = c("*" = .05, "**" = .01, "***" = .001),
+  coef_map     = etiquetas_vars,
+  gof_map      = c("nobs", "r2.marginal"),
+  output       = "flextable"
+)
+
+tabla5_or
+```
 
 
 
